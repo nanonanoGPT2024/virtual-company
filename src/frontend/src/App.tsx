@@ -43,7 +43,20 @@ function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '') || `http://${window.location.hostname}:4000/api`;
+  const getApiBase = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramApi = urlParams.get('api');
+    if (paramApi) {
+      const cleanApi = paramApi.replace(/\/$/, '');
+      localStorage.setItem('API_URL', cleanApi);
+      return cleanApi;
+    }
+    const storedApi = localStorage.getItem('API_URL');
+    if (storedApi) return storedApi;
+    
+    return (import.meta.env.VITE_API_URL || '').replace(/\/$/, '') || `http://${window.location.hostname}:4000/api`;
+  };
+  const API_BASE = getApiBase();
 
   const fetchData = async () => {
     setLoading(true);

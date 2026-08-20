@@ -49,8 +49,8 @@ export default function VirtualOffice({ agents }: VirtualOfficeProps) {
       
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.5rem' }}>
         {/* SVG Office Map */}
-        <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '0.375rem', padding: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '320px' }}>
-          <svg width="100%" height="320" viewBox="0 0 600 320" style={{ maxWidth: '600px' }}>
+        <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '0.375rem', padding: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '500px' }}>
+          <svg width="100%" height="500" viewBox="0 0 600 320" style={{ maxWidth: '900px' }}>
             {/* Grid background */}
             <defs>
               <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -154,7 +154,7 @@ export default function VirtualOffice({ agents }: VirtualOfficeProps) {
         </div>
 
         {/* Sidebar Info Panel */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '320px', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '500px', overflowY: 'auto' }}>
           <h3>Agent Status Board</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {agents.map(a => (

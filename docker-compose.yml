@@ -5,10 +5,10 @@ services:
     image: pgvector/pgvector:pg16
     container_name: company-os-db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
-      POSTGRES_USER: company_admin
-      POSTGRES_PASSWORD: admin_password_change_me
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: company_os
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -33,11 +33,11 @@ services:
       - "4000:4000"
     environment:
       PORT: 4000
-      DATABASE_URL: postgresql://company_admin:admin_password_change_me@postgres:5432/company_os
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/company_os
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: company_admin
-      DB_PASSWORD: admin_password_change_me
+      DB_USER: postgres
+      DB_PASSWORD: postgres
       DB_NAME: company_os
     depends_on:
       - postgres
