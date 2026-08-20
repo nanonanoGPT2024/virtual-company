@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: company-os-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: company_admin
+      POSTGRES_PASSWORD: admin_password_change_me
+      POSTGRES_DB: company_os
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: company-os-vectorstore
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrantdata:/qdrant/storage
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: company-os-backend
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      DATABASE_URL: postgresql://company_admin:admin_password_change_me@postgres:5432/company_os
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: company_admin
+      DB_PASSWORD: admin_password_change_me
+      DB_NAME: company_os
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: company-os-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  qdrantdata:

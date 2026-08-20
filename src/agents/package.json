@@ -1,0 +1,22 @@
+{
+  "name": "ai-virtual-company-os-agents",
+  "version": "1.0.0",
+  "description": "Autonomous AI Agent scripts for AI Virtual Company OS",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "ceo": "node dist/ceoAgent.js",
+    "architect": "node dist/architectAgent.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/pg": "^8.11.4",
+    "typescript": "^5.4.3"
+  }
+}
