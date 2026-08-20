@@ -11,18 +11,46 @@ interface VirtualOfficeProps {
   agents: Agent[];
 }
 
+interface StationLayout {
+  cx: number;
+  cy: number;
+  label: string;
+  color: string;
+  emoji: string;
+  roleMatch: string; // matches a keyword in title
+}
+
 export default function VirtualOffice({ agents }: VirtualOfficeProps) {
+  // Define layout stations for key PRD roles
+  const stations: StationLayout[] = [
+    { cx: 80, cy: 90, label: 'CEO Room', color: '#0284c7', emoji: '👑', roleMatch: 'CEO' },
+    { cx: 140, cy: 90, label: 'CFO Desk', color: '#f59e0b', emoji: '📊', roleMatch: 'CFO' },
+    { cx: 270, cy: 80, label: 'CTO Desk', color: '#38bdf8', emoji: '🛠️', roleMatch: 'CTO' },
+    { cx: 350, cy: 80, label: 'CPO Desk', color: '#10b981', emoji: '💡', roleMatch: 'CPO' },
+    { cx: 430, cy: 80, label: 'CMO Desk', color: '#a855f7', emoji: '📢', roleMatch: 'CMO' },
+    { cx: 510, cy: 80, label: 'CRO Desk', color: '#ec4899', emoji: '🤝', roleMatch: 'CRO' },
+    { cx: 270, cy: 180, label: 'Architect Desk', color: '#15803d', emoji: '💻', roleMatch: 'Architect' },
+    { cx: 350, cy: 180, label: 'BE Dev Desk', color: '#047857', emoji: '💾', roleMatch: 'Backend' },
+    { cx: 430, cy: 180, label: 'FE Dev Desk', color: '#0891b2', emoji: '🎨', roleMatch: 'Frontend' },
+    { cx: 510, cy: 180, label: 'QA Desk', color: '#b91c1c', emoji: '🔍', roleMatch: 'QA' },
+    { cx: 270, cy: 250, label: 'DevOps Desk', color: '#475569', emoji: '🚀', roleMatch: 'DevOps' },
+    { cx: 350, cy: 250, label: 'PM Desk', color: '#6366f1', emoji: '📅', roleMatch: 'Product Manager' },
+    { cx: 430, cy: 250, label: 'UX Desk', color: '#f43f5e', emoji: '✏️', roleMatch: 'UX' },
+    { cx: 510, cy: 250, label: 'Researcher Desk', color: '#84cc16', emoji: '🔬', roleMatch: 'Researcher' },
+    { cx: 80, cy: 210, label: 'FinOps Desk', color: '#eab308', emoji: '🪙', roleMatch: 'Financial Ops' }
+  ];
+
   return (
     <div className="card">
       <h2>Virtual Office Floor Plan</h2>
       <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-        Top-down layout of the autonomous workspace. Active agents are highlighted at their designated workstations.
+        Top-down layout of the autonomous workspace. Active agents ({agents.length} online) are highlighted at their designated workstations.
       </p>
       
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.5rem' }}>
         {/* SVG Office Map */}
-        <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '0.375rem', padding: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
-          <svg width="100%" height="300" viewBox="0 0 600 300" style={{ maxWidth: '600px' }}>
+        <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '0.375rem', padding: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '320px' }}>
+          <svg width="100%" height="320" viewBox="0 0 600 320" style={{ maxWidth: '600px' }}>
             {/* Grid background */}
             <defs>
               <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -32,69 +60,113 @@ export default function VirtualOffice({ agents }: VirtualOfficeProps) {
             <rect width="100%" height="100%" fill="url(#grid)" rx="8" />
             
             {/* Office Walls / Rooms */}
-            <rect x="10" y="10" width="580" height="280" fill="none" stroke="#334155" strokeWidth="2" rx="4" />
+            <rect x="10" y="10" width="580" height="300" fill="none" stroke="#334155" strokeWidth="2" rx="4" />
             
-            {/* Executive Room */}
-            <rect x="20" y="20" width="180" height="120" fill="none" stroke="#334155" strokeWidth="2" strokeDasharray="4" />
-            <text x="30" y="40" fill="#64748b" fontSize="12" fontWeight="600">EXECUTIVE SUITE</text>
+            {/* Executive Suite Room */}
+            <rect x="20" y="20" width="180" height="130" fill="none" stroke="#334155" strokeWidth="2" strokeDasharray="4" />
+            <text x="30" y="40" fill="#64748b" fontSize="11" fontWeight="600">EXECUTIVE SUITE</text>
             
-            {/* Engineering Hub */}
-            <rect x="220" y="20" width="360" height="260" fill="none" stroke="#334155" strokeWidth="2" strokeDasharray="4" />
-            <text x="230" y="40" fill="#64748b" fontSize="12" fontWeight="600">ENGINEERING HUBS</text>
+            {/* Engineering & Product Hub */}
+            <rect x="220" y="20" width="360" height="280" fill="none" stroke="#334155" strokeWidth="2" strokeDasharray="4" />
+            <text x="230" y="40" fill="#64748b" fontSize="11" fontWeight="600">PRODUCTION & ENGINEERING HUB</text>
 
-            {/* Conference Room */}
-            <rect x="20" y="160" width="180" height="120" fill="none" stroke="#334155" strokeWidth="2" strokeDasharray="4" />
-            <text x="30" y="180" fill="#64748b" fontSize="12" fontWeight="600">WAR ROOM (DEBATES)</text>
+            {/* War Room & Finance Room */}
+            <rect x="20" y="170" width="180" height="130" fill="none" stroke="#334155" strokeWidth="2" strokeDasharray="4" />
+            <text x="30" y="190" fill="#64748b" fontSize="11" fontWeight="600">FINANCE & WAR ROOM</text>
             
-            {/* Desks & Workstations */}
-            {/* CEO Desk in Executive Suite */}
-            <rect x="70" y="60" width="60" height="40" fill="#1e293b" stroke="#38bdf8" strokeWidth="2" rx="4" />
-            <text x="100" y="85" fill="#f8fafc" fontSize="11" fontWeight="bold" textAnchor="middle">CEO Desk</text>
-            
-            {/* CEO Avatar if present */}
-            {agents.some(a => a.title === 'CEO') && (
-              <g>
-                <circle cx="100" cy="115" r="14" fill="#0284c7" stroke="#f8fafc" strokeWidth="1.5" />
-                <text x="100" y="119" fill="#fff" fontSize="10" fontWeight="bold" textAnchor="middle">👑</text>
-                <text x="100" y="140" fill="#38bdf8" fontSize="10" textAnchor="middle">Sovereign (CEO)</text>
-              </g>
-            )}
-
-            {/* Architect Desk in Engineering Hub */}
-            <rect x="270" y="90" width="60" height="40" fill="#1e293b" stroke="#4ade80" strokeWidth="2" rx="4" />
-            <text x="300" y="115" fill="#f8fafc" fontSize="11" fontWeight="bold" textAnchor="middle">Desk ENG1</text>
-            
-            {/* Architect Avatar if present */}
-            {agents.some(a => a.id === 'EMP-ENG-001') && (
-              <g>
-                <circle cx="300" cy="145" r="14" fill="#15803d" stroke="#f8fafc" strokeWidth="1.5" />
-                <text x="300" y="149" fill="#fff" fontSize="10" fontWeight="bold" textAnchor="middle">💻</text>
-                <text x="300" y="170" fill="#4ade80" fontSize="10" textAnchor="middle">Alex (Architect)</text>
-              </g>
-            )}
-
-            {/* Empty Workstation for future scaling */}
-            <rect x="420" y="90" width="60" height="40" fill="#0f172a" stroke="#475569" strokeWidth="1.5" strokeDasharray="3" rx="4" />
-            <text x="450" y="115" fill="#475569" fontSize="10" textAnchor="middle">Desk ENG2</text>
-            <text x="450" y="145" fill="#475569" fontSize="9" textAnchor="middle">(Vacant)</text>
-
-            <rect x="350" y="200" width="60" height="40" fill="#0f172a" stroke="#475569" strokeWidth="1.5" strokeDasharray="3" rx="4" />
-            <text x="380" y="225" fill="#475569" fontSize="10" textAnchor="middle">Desk PM</text>
-            <text x="380" y="255" fill="#475569" fontSize="9" textAnchor="middle">(Vacant)</text>
+            {/* Render Workstation Desks and Occupying Agents */}
+            {stations.map((station, idx) => {
+              // Find agent occupying this desk based on role match
+              const occupant = agents.find(a => a.title.toLowerCase().includes(station.roleMatch.toLowerCase()));
+              
+              return (
+                <g key={idx}>
+                  {/* Workstation Desk */}
+                  <rect 
+                    x={station.cx - 25} 
+                    y={station.cy - 18} 
+                    width="50" 
+                    height="30" 
+                    fill="#1e293b" 
+                    stroke={occupant ? station.color : '#475569'} 
+                    strokeWidth={occupant ? 2 : 1}
+                    strokeDasharray={occupant ? '0' : '2'}
+                    rx="3" 
+                  />
+                  <text 
+                    x={station.cx} 
+                    y={station.cy - 22} 
+                    fill={occupant ? '#f8fafc' : '#64748b'} 
+                    fontSize="9" 
+                    fontWeight={occupant ? 'bold' : 'normal'}
+                    textAnchor="middle"
+                  >
+                    {station.label}
+                  </text>
+                  
+                  {/* Occupant Avatar */}
+                  {occupant ? (
+                    <g>
+                      <circle 
+                        cx={station.cx} 
+                        cy={station.cy + 3} 
+                        r="12" 
+                        fill={station.color} 
+                        stroke="#f8fafc" 
+                        strokeWidth="1.5" 
+                      />
+                      <text 
+                        x={station.cx} 
+                        y={station.cy + 7} 
+                        fill="#fff" 
+                        fontSize="9" 
+                        fontWeight="bold" 
+                        textAnchor="middle"
+                      >
+                        {station.emoji}
+                      </text>
+                      <text 
+                        x={station.cx} 
+                        y={station.cy + 24} 
+                        fill={station.color} 
+                        fontSize="9" 
+                        fontWeight="600"
+                        textAnchor="middle"
+                      >
+                        {occupant.name}
+                      </text>
+                    </g>
+                  ) : (
+                    <text 
+                      x={station.cx} 
+                      y={station.cy + 2} 
+                      fill="#475569" 
+                      fontSize="9" 
+                      textAnchor="middle"
+                    >
+                      (Vacant)
+                    </text>
+                  )}
+                </g>
+              );
+            })}
           </svg>
         </div>
 
         {/* Sidebar Info Panel */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '320px', overflowY: 'auto' }}>
           <h3>Agent Status Board</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {agents.map(a => (
-              <div key={a.id} style={{ background: '#0f172a', padding: '0.75rem', borderRadius: '0.375rem', borderLeft: a.title === 'CEO' ? '3px solid #38bdf8' : '3px solid #4ade80' }}>
-                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#f8fafc' }}>{a.name}</div>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{a.title} &bull; Autonomy Lv.{a.autonomy_level}</div>
-                <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
-                  <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>Online &bull; Idle (Awaiting Tasks)</span>
+              <div key={a.id} style={{ background: '#0f172a', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', borderLeft: `3px solid ${stations.find(s => a.title.toLowerCase().includes(s.roleMatch.toLowerCase()))?.color || '#cbd5e1'}` }}>
+                <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#f8fafc', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{a.name}</span>
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{a.id}</span>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{a.title} &bull; Lv.{a.autonomy_level}</div>
+                <div style={{ marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
+                  <span style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>Online &bull; Idle</span>
                 </div>
               </div>
             ))}
