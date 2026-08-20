@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Layout, Users, ClipboardList, Lightbulb, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Layout, Users, ClipboardList, Lightbulb, RefreshCw, AlertTriangle, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
 import VirtualOffice from './components/VirtualOffice';
 import LiveFeed from './components/LiveFeed';
 import FinancialChart from './components/FinancialChart';
@@ -42,6 +42,19 @@ function App() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    const saved = localStorage.getItem('sidebar_collapsed');
+    return saved === 'true';
+  });
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(prev => {
+      const newVal = !prev;
+      localStorage.setItem('sidebar_collapsed', String(newVal));
+      return newVal;
+    });
+  };
 
   const getApiBase = () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -95,10 +108,22 @@ function App() {
   return (
     <div className="dashboard-container">
       {/* Sidebar */}
-      <div className="sidebar">
+      <div className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="logo-section">
-          <Layout size={24} />
-          <span>Company OS</span>
+          {!isSidebarCollapsed && (
+            <div className="logo-brand">
+              <Layout size={24} />
+              <span>Company OS</span>
+            </div>
+          )}
+          {isSidebarCollapsed && (
+            <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+              <Layout size={24} />
+            </div>
+          )}
+          <button onClick={toggleSidebar} className="btn-sidebar-toggle" title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>
+            {isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
         </div>
         <div className="nav-menu">
           <button
@@ -106,43 +131,51 @@ function App() {
             className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
           >
             <Layout size={18} />
-            Overview
+            {!isSidebarCollapsed && <span className="nav-text">Overview</span>}
           </button>
           <button
             onClick={() => setActiveTab('agents')}
             className={`nav-item ${activeTab === 'agents' ? 'active' : ''}`}
           >
             <Users size={18} />
-            AI Agents
+            {!isSidebarCollapsed && <span className="nav-text">AI Agents</span>}
           </button>
           <button
             onClick={() => setActiveTab('tasks')}
             className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`}
           >
             <ClipboardList size={18} />
-            Task Board
+            {!isSidebarCollapsed && <span className="nav-text">Task Board</span>}
           </button>
           <button
             onClick={() => setActiveTab('ideas')}
             className={`nav-item ${activeTab === 'ideas' ? 'active' : ''}`}
           >
             <Lightbulb size={18} />
-            Idea Hub
+            {!isSidebarCollapsed && <span className="nav-text">Idea Hub</span>}
           </button>
         </div>
-        <div style={{ marginTop: 'auto', fontSize: '0.75rem', color: '#64748b', textAlign: 'center' }}>
-          Owner Panel &bull; v1.0.0
+        <div className="sidebar-footer" style={{ marginTop: 'auto', fontSize: '0.75rem', color: '#64748b', textAlign: 'center' }}>
+          {!isSidebarCollapsed && <>Owner Panel &bull; v1.0.0</>}
+          {isSidebarCollapsed && <>v1.0</>}
         </div>
       </div>
 
       {/* Main Content */}
       <div className="main-content">
         <div className="header">
-          <div>
-            <h1>AI Virtual Company OS</h1>
-            <p style={{ margin: '0.25rem 0 0 0', color: '#94a3b8', fontSize: '0.875rem' }}>
-              Phase 6: Virtual Office Live Monitor
-            </p>
+          <div className="header-left">
+            {isSidebarCollapsed && (
+              <button onClick={toggleSidebar} className="btn-menu-trigger" title="Open Menu" style={{ marginRight: '1rem' }}>
+                <Menu size={20} />
+              </button>
+            )}
+            <div>
+              <h1>AI Virtual Company OS</h1>
+              <p style={{ margin: '0.25rem 0 0 0', color: '#94a3b8', fontSize: '0.875rem' }}>
+                Phase 6: Virtual Office Live Monitor
+              </p>
+            </div>
           </div>
           <button onClick={fetchData} className="btn-refresh" disabled={loading}>
             <RefreshCw size={16} className={loading ? 'spin' : ''} />

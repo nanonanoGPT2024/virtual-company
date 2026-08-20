@@ -21,7 +21,7 @@ interface StationLayout {
 export default function VirtualOffice({ agents }: VirtualOfficeProps) {
   // Define layout stations for key PRD roles on an expanded 800x400 grid
   const stations: StationLayout[] = [
-    // Executive Suite (x: 20-260, y: 20-170)
+    // Executive Suite (x: 20-260, y: 20-150)
     { cx: 90, cy: 95, label: 'CEO Room', color: '#0284c7', emoji: '👑', roleMatch: 'CEO' },
     { cx: 190, cy: 95, label: 'CFO Desk', color: '#f59e0b', emoji: '📊', roleMatch: 'CFO' },
     
@@ -54,9 +54,8 @@ export default function VirtualOffice({ agents }: VirtualOfficeProps) {
         Top-down layout of the autonomous workspace. Active agents ({agents.length} online) are highlighted working at their realistic, detailed workstations.
       </p>
       
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.5rem' }}>
-        {/* SVG Office Map (Enlarged viewport size) */}
-        <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '0.375rem', padding: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '520px' }}>
+      {/* SVG Office Map (Enlarged viewport size) */}
+      <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '0.375rem', padding: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '520px', width: '100%', boxSizing: 'border-box' }}>
           <svg width="100%" height="520" viewBox="0 0 800 400" style={{ maxWidth: '100%' }}>
             <defs>
               {/* Floor tile texture pattern */}
@@ -295,38 +294,57 @@ export default function VirtualOffice({ agents }: VirtualOfficeProps) {
                     rx="1.5" 
                   />
                   
-                  {/* LARGER SCREEN MONITOR (Curved monitor setup) */}
-                  <rect 
-                    x={station.cx - 15} 
-                    y={station.cy - 12} 
-                    width="30" 
-                    height="2" 
-                    fill="#030712" 
+                  {/* HUGE CURVED MONITOR SETUP (Ultra-widescreen, spanning 50px across desk) */}
+                  <path 
+                    d={`M ${station.cx - 25} ${station.cy - 15} Q ${station.cx} ${station.cy - 20} ${station.cx + 25} ${station.cy - 15}`} 
+                    fill="none" 
+                    stroke="#020617" 
+                    strokeWidth="6" 
+                  />
+                  {/* Glowing Wide Screen Area */}
+                  <path 
+                    d={`M ${station.cx - 24} ${station.cy - 14.5} Q ${station.cx} ${station.cy - 19.5} ${station.cx + 24} ${station.cy - 14.5}`} 
+                    fill="none" 
+                    stroke={occupant ? "#06b6d4" : "#475569"} 
+                    strokeWidth="2.5" 
                   />
                   {/* Monitor Stand */}
                   <path 
-                    d={`M ${station.cx - 5} ${station.cy - 10} L ${station.cx + 5} ${station.cy - 10} L ${station.cx} ${station.cy - 7} Z`} 
-                    fill="#475569" 
+                    d={`M ${station.cx - 6} ${station.cy - 11} L ${station.cx + 6} ${station.cy - 11} L ${station.cx} ${station.cy - 7} Z`} 
+                    fill="#64748b" 
                   />
                   
-                  {/* Desktop PC Case (Cool gaming tower with neon lines) */}
+                  {/* PORTRAIT SECONDARY MONITOR on the left */}
                   <rect 
-                    x={station.cx + 19} 
-                    y={station.cy - 10} 
-                    width="6" 
-                    height="18" 
-                    fill="#090d16" 
-                    stroke="#334155" 
+                    x={station.cx - 25} 
+                    y={station.cy - 7} 
+                    width="3" 
+                    height="11" 
+                    fill="#020617" 
+                    stroke={occupant ? "#0ea5e9" : "#475569"} 
+                    strokeWidth="0.5" 
+                    rx="0.5" 
+                    transform={`rotate(-15, ${station.cx - 23.5}, ${station.cy - 1.5})`} 
+                  />
+                  
+                  {/* Giant Desktop PC Case (Cool gaming tower with neon lines) */}
+                  <rect 
+                    x={station.cx + 17} 
+                    y={station.cy - 11} 
+                    width="8" 
+                    height="20" 
+                    fill="#020617" 
+                    stroke="#475569" 
                     rx="1" 
                   />
                   {/* Neon LED strip on PC case */}
                   <line 
-                    x1={station.cx + 20} 
-                    y1={station.cy - 8} 
-                    x2={station.cx + 20} 
-                    y2={station.cy + 6} 
+                    x1={station.cx + 18} 
+                    y1={station.cy - 9} 
+                    x2={station.cx + 18} 
+                    y2={station.cy + 7} 
                     stroke={occupant ? station.color : '#475569'} 
-                    strokeWidth="0.5" 
+                    strokeWidth="0.75" 
                   />
                   
                   {/* Keyboard */}
@@ -356,7 +374,7 @@ export default function VirtualOffice({ agents }: VirtualOfficeProps) {
                   {/* Desktop Phone details on some desks */}
                   {(idx % 2 === 0 || station.roleMatch === 'CEO') && (
                     <rect 
-                      x={station.cx - 24} 
+                      x={station.cx - 20} 
                       y={station.cy - 10} 
                       width="5" 
                       height="5" 
@@ -368,8 +386,8 @@ export default function VirtualOffice({ agents }: VirtualOfficeProps) {
                   {/* Little Desk Plant on some other desks */}
                   {(idx % 3 === 1 && station.roleMatch !== 'CEO') && (
                     <g>
-                      <circle cx={station.cx - 23} cy={station.cy - 4} r="2" fill="#b45309" />
-                      <circle cx={station.cx - 23} cy={station.cy - 5} r="1.5" fill="#22c55e" />
+                      <circle cx={station.cx - 22} cy={station.cy - 4} r="2" fill="#b45309" />
+                      <circle cx={station.cx - 22} cy={station.cy - 5} r="1.5" fill="#22c55e" />
                     </g>
                   )}
                   
@@ -563,28 +581,6 @@ export default function VirtualOffice({ agents }: VirtualOfficeProps) {
             })}
           </svg>
         </div>
-
-        {/* Sidebar Info Panel */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '500px', overflowY: 'auto' }}>
-          <h3>Agent Status Board</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {agents.map(a => (
-              <div key={a.id} style={{ background: '#0f172a', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', borderLeft: `3px solid ${stations.find(s => a.title.toLowerCase().includes(s.roleMatch.toLowerCase()))?.color || '#cbd5e1'}` }}>
-                <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#f8fafc', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{a.name}</span>
-                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{a.id}</span>
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{a.title} &bull; Lv.{a.autonomy_level}</div>
-                <div style={{ marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
-                  <span style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>Online &bull; Idle</span>
-                </div>
-              </div>
-            ))}
-            {agents.length === 0 && <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No active agents online.</p>}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
