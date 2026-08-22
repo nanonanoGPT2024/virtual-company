@@ -1,34 +1,36 @@
-import { Router, RequestHandler } from 'express';
-import pool from '../config/db.js';
+import { Router } from 'express';
+import { pool } from '../config/db';
 
 const router = Router();
 
-const getAgents: RequestHandler = async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM employees ORDER BY created_at DESC');
-    res.json({ success: true, data: result.rows });
-  } catch (error) {
-    console.error('Error fetching employees:', error);
-    res.status(500).json({ success: false, message: 'Database error' });
+    const result = await pool.query(`
+      SELECT e.*, d.name as department_name, d.code as department_code 
+      FROM employees e
+      LEFT JOIN departments d ON e.department_id = d.id
+      ORDER BY e.id ASC
+    `);
+    res.json(result.rows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
-};
+});
 
-const getAgentById: RequestHandler = async (req, res) => {
-  const { id } = req.params;
+router.get('/:id', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM employees WHERE id = $1', [id]);
-    if (result.rowCount === 0) {
-      res.status(404).json({ success: false, message: 'Employee not found' });
-      return;
-    }
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    console.error('Error fetching employee by id:', error);
-    res.status(500).json({ success: false, message: 'Database error' });
-  }
-};
+    const result = await pool.query(`
+      SELECT e.*, d.name as department_name, d.code as department_code 
+      FROM employees e
+      LEFT JOIN departments d ON e.department_id = d.id
+      WHERE e.id = $1
+    `, [req.params.id]);
 
-router.get('/', getAgents);
-router.get('/:id', getAgentById);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Agent not found' });
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 export default router;

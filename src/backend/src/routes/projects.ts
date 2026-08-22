@@ -1,130 +1,110 @@
-import { Router, RequestHandler } from 'express';
-import pool from '../config/db.js';
+import { Router } from 'express';
+import { pool } from '../config/db';
+import { runProjectPipeline } from '../services/projectPipeline';
+import { logActivity } from '../services/activityService';
+import { exec } from 'child_process';
+import util from 'util';
 
+const execPromise = util.promisify(exec);
 const router = Router();
 
-// GET /api/projects - List all projects with nested tasks & documents
-const getProjects: RequestHandler = async (req, res) => {
+// GET all projects
+router.get('/', async (req, res) => {
   try {
-    const projectsRes = await pool.query('SELECT * FROM projects ORDER BY created_at DESC');
-    const tasksRes = await pool.query('SELECT * FROM tasks ORDER BY created_at ASC');
-    const docsRes = await pool.query('SELECT * FROM documents ORDER BY created_at ASC');
-
-    const projectsWithDetails = projectsRes.rows.map((project) => {
-      const projectTasks = tasksRes.rows.filter((t) => t.project_id === project.id);
-      const projectDocs = docsRes.rows.filter((d) => d.project_id === project.id);
-      return {
-        ...project,
-        tasks: projectTasks,
-        documents: projectDocs
-      };
-    });
-
-    res.json({ success: true, data: projectsWithDetails });
+    const result = await pool.query('SELECT * FROM projects ORDER BY created_at DESC');
+    res.json(result.rows);
   } catch (error: any) {
-    console.error('Error fetching projects:', error);
-    res.status(500).json({ success: false, message: `Database error: ${error.message}` });
+    res.status(500).json({ error: error.message });
   }
-};
+});
 
-// POST /api/projects - Create a new project and initialize division pipeline tasks
-const createProject: RequestHandler = async (req, res) => {
-  const { name, description, budget_usd } = req.body;
-
-  if (!name || name.trim() === '') {
-    res.status(400).json({ success: false, message: 'Project name is required' });
-    return;
-  }
-
+// GET single project with its documents
+router.get('/:id', async (req, res) => {
   try {
-    const compRes = await pool.query('SELECT id FROM companies LIMIT 1');
-    const companyId = compRes.rows[0]?.id || '11111111-1111-1111-1111-111111111111';
+    const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [req.params.id]);
+    if (projRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    const docsRes = await pool.query('SELECT * FROM project_documents WHERE project_id = $1 ORDER BY created_at ASC', [req.params.id]);
+    const costsRes = await pool.query('SELECT * FROM token_usages WHERE project_id = $1 ORDER BY created_at DESC', [req.params.id]);
 
-    // 1. Insert Project
-    const projQuery = `
-      INSERT INTO projects (company_id, name, description, budget_usd, status)
-      VALUES ($1, $2, $3, $4, 'ACTIVE')
-      RETURNING *
-    `;
-    const projRes = await pool.query(projQuery, [
-      companyId,
-      name,
-      description || 'Project baru otomatis dari pipeline AI Virtual Company.',
-      budget_usd || 15000.00
-    ]);
-    const newProject = projRes.rows[0];
+    res.json({
+      project: projRes.rows[0],
+      documents: docsRes.rows,
+      costs: costsRes.rows
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
-    // 2. Initialize Standard Pipeline Tasks for this Project
-    const tasksToCreate = [
-      {
-        title: 'Executive Strategic Assessment & Budget Lock',
-        goal: `Menetapkan model bisnis, batasan modal token, dan ROI untuk project ${name}.`,
-        assignee_id: 'EMP-EXE-001',
-        priority: 'HIGH'
-      },
-      {
-        title: 'Product Scope & UX Flow Specification (PRD)',
-        goal: `Menyusun dokumen PRD, user stories, dan daftar deliverable fitur ${name}.`,
-        assignee_id: 'EMP-EXE-004',
-        priority: 'HIGH'
-      },
-      {
-        title: 'Core System Implementation & Code Generator',
-        goal: `Membangun arsitektur (ADR), setup folder kode di WSL, dan menulis logika backend/frontend.`,
-        assignee_id: 'EMP-ENG-001',
-        priority: 'CRITICAL'
-      },
-      {
-        title: 'Automated QA Testing & Security Audit',
-        goal: `Menjalankan unit test, e2e simulation, dan verifikasi bug report.`,
-        assignee_id: 'EMP-QA-101',
-        priority: 'HIGH'
-      },
-      {
-        title: 'DevOps Deployment & Containerization in WSL',
-        goal: `Setup Docker container, binding port lokal, dan deploy runtime aplikasi di lingkungan WSL.`,
-        assignee_id: 'EMP-OPS-101',
-        priority: 'CRITICAL'
-      },
-      {
-        title: 'Market Launch & Growth Release Announcement',
-        goal: `Merilis materi promosi, rilis release notes publik, dan kick-off campaign.`,
-        assignee_id: 'EMP-MKT-001',
-        priority: 'MEDIUM'
-      }
-    ];
-
-    for (const t of tasksToCreate) {
-      await pool.query(
-        `INSERT INTO tasks (title, goal, project_id, assignee_id, priority, status)
-         VALUES ($1, $2, $3, $4, $5, 'READY')`,
-        [t.title, t.goal, newProject.id, t.assignee_id, t.priority]
-      );
+// POST Create new project & trigger fast parallel pipeline
+router.post('/', async (req, res) => {
+  try {
+    const { title, description, goal, custom_port } = req.body;
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
     }
 
-    // 3. Create starter Architecture & DevOps spec doc
-    await pool.query(
-      `INSERT INTO documents (project_id, type, title, content, version)
-       VALUES ($1, 'PRD', $2, $3, 1)`,
-      [
-        newProject.id,
-        `PRD: ${newProject.name}`,
-        `# PROJECT REQUIREMENTS DOCUMENT (PRD)\n**Project:** ${newProject.name}\n**Status:** INITIALIZED\n**Target Deploy:** WSL / Docker Container\n\n## Ringkasan Project\n${newProject.description}\n\n## Pipeline Divisi:\n1. Executive Inisiasi\n2. Product PRD\n3. Engineering Coding\n4. QA Testing\n5. DevOps Deployment (WSL Port auto-bind)\n6. Marketing Launch`
-      ]
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+    const projectId = `PROJ-${Math.floor(1000 + Math.random() * 9000)}`;
+    
+    // Find next available port if not specified (starting from 5001)
+    let assignedPort = custom_port;
+    if (!assignedPort) {
+      const portRes = await pool.query('SELECT MAX(port) as max_port FROM projects');
+      const maxPort = portRes.rows[0].max_port;
+      assignedPort = maxPort ? parseInt(maxPort, 10) + 1 : 5001;
+    }
+
+    const newProject = await pool.query(
+      `INSERT INTO projects (id, company_id, title, slug, description, goal, port, status, current_stage, progress_percentage)
+       VALUES ($1, 'COMP-001', $2, $3, $4, $5, $6, 'INITIATED', 'Discovery & Spec', 5)
+       RETURNING *`,
+      [projectId, title, slug, description || title, goal || description || title, assignedPort]
     );
 
+    await logActivity('RESEARCH', `Owner (Nano) menginisiasi proyek baru: "${title}"`, 'EMP-OWNER', projectId);
+
+    // Trigger pipeline in background without blocking response
+    setImmediate(() => {
+      runProjectPipeline(projectId).catch(err => console.error('[Pipeline Background Error]:', err));
+    });
+
     res.status(201).json({
-      success: true,
-      message: `Project ${name} berhasil dibuat dengan 6 alur tahapan divisi lengkap termasuk DevOps Deployment.`,
-      data: newProject
+      message: 'Project created & pipeline started in background',
+      project: newProject.rows[0]
     });
   } catch (error: any) {
-    console.error('Error creating project:', error);
-    res.status(500).json({ success: false, message: `Database error: ${error.message}` });
+    res.status(500).json({ error: error.message });
   }
-};
+});
 
-router.get('/', getProjects);
-router.post('/', createProject);
+// POST Control PM2 (start, stop, restart)
+router.post('/:id/pm2/:action', async (req, res) => {
+  try {
+    const { id, action } = req.params;
+    const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
+    if (projRes.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
+    const project = projRes.rows[0];
+
+    if (!project.pm2_name) return res.status(400).json({ error: 'Project has not been deployed to PM2 yet' });
+
+    if (action === 'start') {
+      await execPromise(`pm2 start "${project.pm2_name}"`);
+      await pool.query("UPDATE projects SET status = 'DEPLOYED' WHERE id = $1", [id]);
+    } else if (action === 'stop') {
+      await execPromise(`pm2 stop "${project.pm2_name}"`);
+      await pool.query("UPDATE projects SET status = 'STOPPED' WHERE id = $1", [id]);
+    } else if (action === 'restart') {
+      await execPromise(`pm2 restart "${project.pm2_name}"`);
+      await pool.query("UPDATE projects SET status = 'DEPLOYED' WHERE id = $1", [id]);
+    }
+
+    res.json({ message: `PM2 action ${action} executed successfully`, project_id: id });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 export default router;

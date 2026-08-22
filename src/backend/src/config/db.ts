@@ -26,4 +26,5 @@ export const testConnection = async (): Promise<boolean> => {
   }
 };
 
+export { pool };
 export default pool;

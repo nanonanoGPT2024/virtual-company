@@ -7,7 +7,11 @@ interface Agent {
   id: string;
   name: string;
   title: string;
-  autonomy_level: number;
+  role?: string;
+  department_id?: string;
+  department_code?: string;
+  autonomy_level?: number;
+  avatar_url?: string;
 }
 
 interface VirtualOfficeProps {
@@ -15,31 +19,49 @@ interface VirtualOfficeProps {
   onStartChatWithAgent?: (agent: Agent) => void;
 }
 
-// 14 stations mapped accurately to the 2D layout
+// Default fallback agent mapping so avatars are NEVER empty
+const DEFAULT_FALLBACK_AGENTS: Record<string, Partial<Agent>> = {
+  ceo: { id: 'EMP-CEO', name: 'Chief Aura (CEO)', title: 'Chief Executive Officer', role: 'CEO', autonomy_level: 5 },
+  cfo: { id: 'EMP-CFO', name: 'Morgan Drake (CFO)', title: 'Chief Financial Officer', role: 'CFO', autonomy_level: 4 },
+  legal: { id: 'EMP-LEG', name: 'Justicia (Legal & Terms)', title: 'Software Legal & Compliance Specialist', role: 'Legal Counsel', autonomy_level: 4 },
+  cto: { id: 'EMP-CTO', name: 'Marcus Sterling (CTO)', title: 'Chief Technology Officer', role: 'CTO', autonomy_level: 5 },
+  cpo: { id: 'EMP-CPO', name: 'Elena Vance (CPO)', title: 'Chief Product Officer', role: 'CPO', autonomy_level: 5 },
+  cmo: { id: 'EMP-MKT', name: 'Vibe (Marketing Copy)', title: 'Growth & Marketing Copywriter', role: 'Marketer', autonomy_level: 4 },
+  cro: { id: 'EMP-CRO', name: 'Hunter (Sales Lead)', title: 'Chief Revenue & Client Acquisition', role: 'Sales / CRO', autonomy_level: 4 },
+  arch: { id: 'EMP-ARCH', name: 'Viktor Cruz (Architect)', title: 'Principal Software Architect', role: 'Architect', autonomy_level: 4 },
+  dev: { id: 'EMP-DEV', name: 'Devron (Fullstack Dev)', title: 'Lead Fullstack Engineer', role: 'Developer', autonomy_level: 4 },
+  ops: { id: 'EMP-OPS', name: 'Cipher (DevOps / SRE)', title: 'Cloud & Site Reliability Engineer', role: 'DevOps', autonomy_level: 4 },
+  qa: { id: 'EMP-QA', name: 'Tessa (SQA Engineer)', title: 'Lead Quality Assurance Engineer', role: 'QA Engineer', autonomy_level: 4 },
+  pm: { id: 'EMP-PM', name: 'Sarah Jenkins (PM)', title: 'Senior Product Manager', role: 'Product Manager', autonomy_level: 4 },
+  ux: { id: 'EMP-UX', name: 'Kaelen (UI/UX Spec)', title: 'Lead UI/UX Architect', role: 'UX Designer', autonomy_level: 4 },
+  research: { id: 'EMP-RES', name: 'Dr. Aris (Researcher)', title: 'Lead Market Researcher', role: 'Researcher', autonomy_level: 4 }
+};
+
+// 14 stations mapped accurately to the 2D layout and PRD v2.0 roles
 const ALL_STATIONS = [
   // Executive Suite (Left Top)
-  { id: 'ceo', x: -14, z: -5, label: 'CEO Room', roleMatch: 'CEO', color: '#0284c7', emoji: '👑' },
-  { id: 'cfo', x: -9, z: -5, label: 'CFO Desk', roleMatch: 'CFO', color: '#f59e0b', emoji: '📊' },
+  { id: 'ceo', empId: 'EMP-CEO', x: -14, z: -5, label: 'CEO Room', roleMatch: 'CEO', color: '#0284c7', emoji: '👑' },
+  { id: 'cfo', empId: 'EMP-CFO', x: -9, z: -5, label: 'CFO Desk', roleMatch: 'CFO', color: '#f59e0b', emoji: '📊' },
   
-  // Finance & Recreation (Left Bottom)
-  { id: 'finops', x: -11.5, z: 2, label: 'FinOps Desk', roleMatch: 'Financial Ops', color: '#eab308', emoji: '🪙' },
+  // Finance & Legal (Left Bottom)
+  { id: 'legal', empId: 'EMP-LEG', x: -11.5, z: 2, label: 'Legal/Terms Desk', roleMatch: 'Legal', color: '#eab308', emoji: '⚖️' },
 
   // Open Space - Row 1 (Top)
-  { id: 'cto', x: -2.5, z: -5.5, label: 'CTO Desk', roleMatch: 'CTO', color: '#38bdf8', emoji: '🛠️' },
-  { id: 'cpo', x: 2.5, z: -5.5, label: 'CPO Desk', roleMatch: 'CPO', color: '#10b981', emoji: '💡' },
-  { id: 'cmo', x: 7.5, z: -5.5, label: 'CMO Desk', roleMatch: 'CMO', color: '#a855f7', emoji: '📢' },
-  { id: 'cro', x: 12.5, z: -5.5, label: 'CRO Desk', roleMatch: 'CRO', color: '#ec4899', emoji: '🤝' },
+  { id: 'cto', empId: 'EMP-CTO', x: -2.5, z: -5.5, label: 'CTO Desk', roleMatch: 'CTO', color: '#38bdf8', emoji: '🛠️' },
+  { id: 'cpo', empId: 'EMP-CPO', x: 2.5, z: -5.5, label: 'CPO Desk', roleMatch: 'CPO', color: '#10b981', emoji: '💡' },
+  { id: 'cmo', empId: 'EMP-MKT', x: 7.5, z: -5.5, label: 'Marketing Desk', roleMatch: 'Marketing', color: '#a855f7', emoji: '📢' },
+  { id: 'cro', empId: 'EMP-CRO', x: 12.5, z: -5.5, label: 'Sales/CRO Desk', roleMatch: 'Sales', color: '#ec4899', emoji: '🤝' },
 
   // Open Space - Row 2 (Middle)
-  { id: 'arch', x: -2.5, z: -0.5, label: 'Architect Desk', roleMatch: 'Architect', color: '#15803d', emoji: '💻' },
-  { id: 'be', x: 2.5, z: -0.5, label: 'BE Dev Desk', roleMatch: 'Backend', color: '#047857', emoji: '💾' },
-  { id: 'fe', x: 7.5, z: -0.5, label: 'FE Dev Desk', roleMatch: 'Frontend', color: '#0891b2', emoji: '🎨' },
-  { id: 'qa', x: 12.5, z: -0.5, label: 'QA Desk', roleMatch: 'QA', color: '#b91c1c', emoji: '🔍' },
+  { id: 'arch', empId: 'EMP-ARCH', x: -2.5, z: -0.5, label: 'Architect Desk', roleMatch: 'Architect', color: '#15803d', emoji: '💻' },
+  { id: 'dev', empId: 'EMP-DEV', x: 2.5, z: -0.5, label: 'Dev Desk', roleMatch: 'Developer', color: '#047857', emoji: '💾' },
+  { id: 'ops', empId: 'EMP-OPS', x: 7.5, z: -0.5, label: 'DevOps Desk', roleMatch: 'DevOps', color: '#0891b2', emoji: '🚀' },
+  { id: 'qa', empId: 'EMP-QA', x: 12.5, z: -0.5, label: 'QA Desk', roleMatch: 'QA', color: '#b91c1c', emoji: '🔍' },
 
   // Open Space - Row 3 (Bottom)
-  { id: 'pm', x: 2.5, z: 4.5, label: 'PM Desk', roleMatch: 'Product Manager', color: '#6366f1', emoji: '📅' },
-  { id: 'ux', x: 7.5, z: 4.5, label: 'UX Desk', roleMatch: 'UX', color: '#f43f5e', emoji: '✏️' },
-  { id: 'research', x: 12.5, z: 4.5, label: 'Researcher Desk', roleMatch: 'Researcher', color: '#84cc16', emoji: '🔬' },
+  { id: 'pm', empId: 'EMP-PM', x: 2.5, z: 4.5, label: 'PM Desk', roleMatch: 'Product', color: '#6366f1', emoji: '📅' },
+  { id: 'ux', empId: 'EMP-UX', x: 7.5, z: 4.5, label: 'UX Desk', roleMatch: 'UX', color: '#f43f5e', emoji: '✏️' },
+  { id: 'research', empId: 'EMP-RES', x: 12.5, z: 4.5, label: 'Researcher Desk', roleMatch: 'Research', color: '#84cc16', emoji: '🔬' },
 ];
 
 // Potted Plant Component
@@ -239,14 +261,14 @@ function Workstation({ station, agent, isSelected, onClick }: any) {
   const [hovered, setHovered] = useState(false);
   useCursor(hovered, 'pointer', 'auto');
   
-  const isOccupied = !!agent;
-  const activeColor = isOccupied ? station.color : '#475569';
+  const displayAgent = agent || DEFAULT_FALLBACK_AGENTS[station.id];
+  const activeColor = station.color || '#0284c7';
   
   // Bobbing animation for seated avatar
   const avatarRef = useRef<THREE.Group>(null);
   useFrame((state) => {
-    if (avatarRef.current && isOccupied) {
-      avatarRef.current.position.y = Math.sin(state.clock.elapsedTime * 2.5 + station.x) * 0.04 + 0.95;
+    if (avatarRef.current) {
+      avatarRef.current.position.y = Math.sin(state.clock.elapsedTime * 2.5 + station.x) * 0.05 + 0.95;
     }
   });
 
@@ -276,7 +298,7 @@ function Workstation({ station, agent, isSelected, onClick }: any) {
         {/* Screen Display Face with Role Accent Glow */}
         <mesh position={[0, 0, 0.016]}>
           <planeGeometry args={[1.44, 0.39]} />
-          <meshBasicMaterial color={isOccupied ? activeColor : '#0f172a'} />
+          <meshBasicMaterial color={activeColor} />
         </mesh>
         {/* Stand */}
         <Cylinder args={[0.02, 0.02, 0.22]} position={[0, -0.22, -0.05]}><meshStandardMaterial color="#10b981" /></Cylinder>
@@ -288,7 +310,7 @@ function Workstation({ station, agent, isSelected, onClick }: any) {
         <Box args={[0.32, 0.55, 0.02]} castShadow><meshStandardMaterial color="#94a3b8" /></Box>
         <mesh position={[0, 0, 0.011]}>
           <planeGeometry args={[0.28, 0.5]} />
-          <meshBasicMaterial color={isOccupied ? '#10b981' : '#0f172a'} />
+          <meshBasicMaterial color="#10b981" />
         </mesh>
       </group>
 
@@ -314,51 +336,63 @@ function Workstation({ station, agent, isSelected, onClick }: any) {
         <Cylinder args={[0.25, 0.25, 0.03, 5]} position={[0, 0.02, 0]}><meshStandardMaterial color="#cbd5e1" /></Cylinder>
       </group>
 
-      {/* Roblox-Style Character (Boxy, Vibrant & Cute) */}
-      {isOccupied ? (
-        <group ref={avatarRef} position={[0, 0.95, 0.5]}>
-          {/* Head (Yellow Classic Roblox) */}
-          <RoundedBox args={[0.36, 0.36, 0.36]} radius={0.04} position={[0, 0.58, 0]} castShadow>
-            <meshStandardMaterial color="#fcd34d" roughness={0.3} />
-          </RoundedBox>
-          {/* Emoji Badge floating right on face */}
-          <Text position={[0, 0.6, 0.19]} fontSize={0.16} anchorX="center" anchorY="middle">
-            {station.emoji}
+      {/* Roblox-Style Character (Guaranteed Always Rendered) */}
+      <group ref={avatarRef} position={[0, 0.95, 0.5]}>
+        {/* Head (Yellow Classic Roblox) */}
+        <RoundedBox args={[0.42, 0.42, 0.42]} radius={0.05} position={[0, 0.62, 0]} castShadow>
+          <meshStandardMaterial color="#fcd34d" roughness={0.3} />
+        </RoundedBox>
+        {/* Head Front Face Eyes/Smile */}
+        <mesh position={[0, 0.62, 0.215]}>
+          <planeGeometry args={[0.3, 0.2]} />
+          <meshBasicMaterial color="#0f172a" />
+        </mesh>
+        <mesh position={[-0.08, 0.66, 0.22]}>
+          <planeGeometry args={[0.05, 0.05]} />
+          <meshBasicMaterial color="#ffffff" />
+        </mesh>
+        <mesh position={[0.08, 0.66, 0.22]}>
+          <planeGeometry args={[0.05, 0.05]} />
+          <meshBasicMaterial color="#ffffff" />
+        </mesh>
+
+        {/* Torso (Brightly Colored to Agent Role) */}
+        <RoundedBox args={[0.54, 0.58, 0.32]} radius={0.05} position={[0, 0.18, 0]} castShadow>
+          <meshStandardMaterial color={activeColor} roughness={0.3} />
+        </RoundedBox>
+
+        {/* Left & Right Arms resting forward toward keyboard */}
+        <RoundedBox args={[0.18, 0.46, 0.18]} radius={0.04} position={[-0.36, 0.18, -0.1]} rotation={[0.4, 0, 0.1]} castShadow>
+          <meshStandardMaterial color={activeColor} />
+        </RoundedBox>
+        <RoundedBox args={[0.18, 0.46, 0.18]} radius={0.04} position={[0.36, 0.18, -0.1]} rotation={[0.4, 0, -0.1]} castShadow>
+          <meshStandardMaterial color={activeColor} />
+        </RoundedBox>
+
+        {/* Hands (Yellow Roblox) */}
+        <mesh position={[-0.38, -0.02, -0.22]} castShadow>
+          <sphereGeometry args={[0.08, 8, 8]} />
+          <meshStandardMaterial color="#fcd34d" />
+        </mesh>
+        <mesh position={[0.38, -0.02, -0.22]} castShadow>
+          <sphereGeometry args={[0.08, 8, 8]} />
+          <meshStandardMaterial color="#fcd34d" />
+        </mesh>
+
+        {/* Floating Agent Name Tag */}
+        <group position={[0, 1.05, 0]}>
+          <mesh position={[0, 0, -0.01]}>
+            <planeGeometry args={[(displayAgent.name || station.label).length * 0.13 + 0.4, 0.28]} />
+            <meshBasicMaterial color="#020617" opacity={0.9} transparent />
+          </mesh>
+          <Text fontSize={0.14} color="#38bdf8" fontWeight="bold" anchorX="center" anchorY="middle">
+            {displayAgent.name || station.label}
           </Text>
-
-          {/* Torso (Colored to Agent Role) */}
-          <RoundedBox args={[0.48, 0.52, 0.28]} radius={0.04} position={[0, 0.18, 0]} castShadow>
-            <meshStandardMaterial color={activeColor} roughness={0.4} />
-          </RoundedBox>
-
-          {/* Left & Right Arms resting forward toward keyboard */}
-          <RoundedBox args={[0.16, 0.42, 0.16]} radius={0.03} position={[-0.32, 0.18, -0.1]} rotation={[0.4, 0, 0.1]} castShadow>
-            <meshStandardMaterial color={activeColor} />
-          </RoundedBox>
-          <RoundedBox args={[0.16, 0.42, 0.16]} radius={0.03} position={[0.32, 0.18, -0.1]} rotation={[0.4, 0, -0.1]} castShadow>
-            <meshStandardMaterial color={activeColor} />
-          </RoundedBox>
-
-          {/* Floating Agent Name Tag */}
-          <group position={[0, 0.92, 0]}>
-            <mesh position={[0, 0, -0.01]}>
-              <planeGeometry args={[agent.name.length * 0.12 + 0.3, 0.22]} />
-              <meshBasicMaterial color="#0f172a" opacity={0.85} transparent />
-            </mesh>
-            <Text fontSize={0.13} color="#0f172a" fontWeight="bold" anchorX="center" anchorY="middle">
-              {agent.name}
-            </Text>
-          </group>
         </group>
-      ) : (
-        /* Vacant Label */
-        <Text position={[0, 1.2, 0.2]} fontSize={0.18} color="#64748b" anchorX="center" anchorY="middle" rotation={[-Math.PI / 6, 0, 0]}>
-          (Vacant)
-        </Text>
-      )}
+      </group>
 
       {/* Desk Title Sign */}
-      <Text position={[0, 0.8, -0.6]} fontSize={0.15} color={isOccupied ? '#f8fafc' : '#64748b'} fontWeight={isOccupied ? 'bold' : 'normal'} anchorX="center" anchorY="middle">
+      <Text position={[0, 0.8, -0.6]} fontSize={0.16} color="#f8fafc" fontWeight="bold" anchorX="center" anchorY="middle">
         {station.label}
       </Text>
 
@@ -366,7 +400,7 @@ function Workstation({ station, agent, isSelected, onClick }: any) {
       {(hovered || isSelected) && (
         <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[2.8, 2.2]} />
-          <meshBasicMaterial color={activeColor} opacity={0.25} transparent />
+          <meshBasicMaterial color={activeColor} opacity={0.35} transparent />
         </mesh>
       )}
     </group>
@@ -494,19 +528,28 @@ export default function ThreeDOffice({ agents, onStartChatWithAgent }: VirtualOf
         {/* Full 3D Office Environment Matching 2D */}
         <FullOfficeEnvironment />
         
-        {/* Render all 14 Workstations */}
+        {/* Render all 14 Workstations with guaranteed fallback agent */}
         {ALL_STATIONS.map((station) => {
-          const matchedAgent = agents.find(a => 
-            a.title.toLowerCase().includes(station.roleMatch.toLowerCase())
-          );
+          const liveAgent = agents.find(a => {
+            if (station.empId && a.id === station.empId) return true;
+            const roleStr = (a.role || '').toLowerCase();
+            const titleStr = (a.title || '').toLowerCase();
+            const nameStr = (a.name || '').toLowerCase();
+            const match = station.roleMatch.toLowerCase();
+            return roleStr.includes(match) || titleStr.includes(match) || nameStr.includes(match);
+          });
+
+          // Always ensure an agent avatar is present
+          const agent = liveAgent || (DEFAULT_FALLBACK_AGENTS[station.id] as Agent);
+          const isSelected = selectedAgentId ? (agent && agent.id === selectedAgentId) : false;
           
           return (
             <Workstation 
               key={station.id} 
               station={station}
-              agent={matchedAgent}
-              isSelected={matchedAgent && matchedAgent.id === selectedAgentId}
-              onClick={() => matchedAgent && setSelectedAgentId(matchedAgent.id)}
+              agent={agent}
+              isSelected={isSelected}
+              onClick={() => agent && setSelectedAgentId(agent.id)}
             />
           );
         })}

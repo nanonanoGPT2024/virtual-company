@@ -5,7 +5,11 @@ interface Agent {
   id: string;
   name: string;
   title: string;
-  autonomy_level: number;
+  role?: string;
+  department_id?: string;
+  department_code?: string;
+  autonomy_level?: number;
+  avatar_url?: string;
 }
 
 interface VirtualOfficeProps {
@@ -29,17 +33,18 @@ export default function VirtualOffice({ agents, viewMode = '2d', onToggleViewMod
   const currentMode = onToggleViewMode ? viewMode : internalMode;
   const setMode = onToggleViewMode || setInternalMode;
 
+  // 14 stations mapped accurately to the 2D layout and DB Seed roles
   const stations: StationLayout[] = [
     { cx: 90, cy: 95, label: 'CEO Room', color: '#0284c7', emoji: '👑', roleMatch: 'CEO' },
     { cx: 190, cy: 95, label: 'CFO Desk', color: '#f59e0b', emoji: '📊', roleMatch: 'CFO' },
-    { cx: 140, cy: 240, label: 'FinOps Desk', color: '#eab308', emoji: '🪙', roleMatch: 'Financial Ops' },
+    { cx: 140, cy: 240, label: 'Legal/Fin Desk', color: '#eab308', emoji: '⚖️', roleMatch: 'Legal' },
     { cx: 350, cy: 90, label: 'CTO Desk', color: '#38bdf8', emoji: '🛠️', roleMatch: 'CTO' },
     { cx: 450, cy: 90, label: 'CPO Desk', color: '#10b981', emoji: '💡', roleMatch: 'CPO' },
-    { cx: 550, cy: 90, label: 'CMO Desk', color: '#a855f7', emoji: '📢', roleMatch: 'CMO' },
-    { cx: 650, cy: 90, label: 'CRO Desk', color: '#ec4899', emoji: '🤝', roleMatch: 'CRO' },
+    { cx: 550, cy: 90, label: 'CMO Desk', color: '#a855f7', emoji: '📢', roleMatch: 'Marketing' },
+    { cx: 650, cy: 90, label: 'CRO Desk', color: '#ec4899', emoji: '🤝', roleMatch: 'Sales' },
     { cx: 350, cy: 190, label: 'Architect Desk', color: '#15803d', emoji: '💻', roleMatch: 'Architect' },
-    { cx: 450, cy: 190, label: 'BE Dev Desk', color: '#047857', emoji: '💾', roleMatch: 'Backend' },
-    { cx: 550, cy: 190, label: 'FE Dev Desk', color: '#0891b2', emoji: '🎨', roleMatch: 'Frontend' },
+    { cx: 450, cy: 190, label: 'Dev Desk', color: '#047857', emoji: '💾', roleMatch: 'Developer' },
+    { cx: 550, cy: 190, label: 'DevOps Desk', color: '#0891b2', emoji: '🚀', roleMatch: 'DevOps' },
     { cx: 650, cy: 190, label: 'QA Desk', color: '#b91c1c', emoji: '🔍', roleMatch: 'QA' },
     { cx: 450, cy: 290, label: 'PM Desk', color: '#6366f1', emoji: '📅', roleMatch: 'Product Manager' },
     { cx: 550, cy: 290, label: 'UX Desk', color: '#f43f5e', emoji: '✏️', roleMatch: 'UX' },
