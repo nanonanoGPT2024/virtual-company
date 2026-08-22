@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { 
-  Building2, 
   Layers, 
   CheckCircle2, 
   Clock, 
@@ -10,10 +9,7 @@ import {
   ArrowLeft, 
   User, 
   Check, 
-  Briefcase, 
-  Sparkles,
   ChevronRight,
-  Server,
   Plus,
   Rocket
 } from 'lucide-react';
@@ -162,32 +158,71 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
 
   // Compute status for each division stage for a given project
   const getProjectDivisionState = (project: ProjectItem) => {
-    const totalTasks = project.tasks?.length || 0;
-    const completedTasks = (project.tasks || []).filter(t => t.status === 'COMPLETED').length;
+    const tasks = project.tasks || [];
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(t => t.status === 'COMPLETED').length;
     
-    // Determine active division based on task progress
-    let activeDivIdx = 4; // DevOps default if in active phase
-    if (totalTasks === 0) {
-      activeDivIdx = 0; // Executive
-    } else if (completedTasks === totalTasks && totalTasks > 0) {
-      activeDivIdx = 5; // Marketing / Finished
-    } else if (completedTasks >= 4) {
-      activeDivIdx = 4; // DevOps Stage
-    } else if (completedTasks >= 3) {
-      activeDivIdx = 3; // QA Stage
-    } else if (completedTasks >= 1) {
-      activeDivIdx = 2; // Engineering Stage
-    } else {
-      activeDivIdx = 1; // Product Stage
+    // 6 Pipeline Stages:
+    // 0: Executive & Strategy
+    // 1: Product & Planning
+    // 2: Engineering & Dev
+    // 3: QA & Verification
+    // 4: DevOps & WSL Deployment
+    // 5: Marketing & Release
+
+    const stageKeywords = [
+      ['executive', 'strategic', 'budget lock'],
+      ['product', 'scope', 'prd', 'specification', 'user flow'],
+      ['core system', 'implementation', 'code', 'backend boilerplate', 'engineering', 'developer'],
+      ['qa', 'testing', 'audit', 'verification'],
+      ['devops', 'deployment', 'wsl', 'container'],
+      ['market', 'launch', 'release', 'marketing']
+    ];
+
+    let activeDivIdx = 0;
+    let foundActive = false;
+
+    for (let i = 0; i < 6; i++) {
+      const keywords = stageKeywords[i];
+      const stageTasks = tasks.filter(t => 
+        keywords.some(k => (t.title || '').toLowerCase().includes(k) || (t.goal || '').toLowerCase().includes(k))
+      );
+      if (stageTasks.length > 0) {
+        const allCompleted = stageTasks.every(t => t.status === 'COMPLETED');
+        if (!allCompleted) {
+          activeDivIdx = i;
+          foundActive = true;
+          break;
+        }
+      }
     }
 
-    const isClosed = project.status === 'COMPLETED' || (completedTasks === totalTasks && totalTasks > 0);
+    if (!foundActive) {
+      if (totalTasks === 0) {
+        activeDivIdx = 0;
+      } else if (completedTasks === totalTasks && project.status === 'COMPLETED') {
+        activeDivIdx = 5;
+      } else if (completedTasks >= 4) {
+        activeDivIdx = 4;
+      } else if (completedTasks >= 3) {
+        activeDivIdx = 3;
+      } else if (completedTasks >= 2) {
+        activeDivIdx = 2;
+      } else if (completedTasks >= 1) {
+        activeDivIdx = 1;
+      } else {
+        activeDivIdx = 0;
+      }
+    }
+
+    const isClosed = project.status === 'COMPLETED';
+    const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : (isClosed ? 100 : 20);
 
     return {
       currentDivision: PIPELINE_DIVISIONS[activeDivIdx] || PIPELINE_DIVISIONS[0],
       activeDivIdx,
       isClosed,
-      progressPercent: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 25
+      progressPercent
     };
   };
 
@@ -550,13 +585,16 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
             const isCompleted = selectedDivisionIndex < activeDivIdx;
             const isCurrent = selectedDivisionIndex === activeDivIdx;
 
-            // Filter relevant documents or tasks for this division
+            // Filter relevant documents for this specific division
             const matchingDocs = (selectedProject.documents || []).filter(d => {
-              if (activeDiv.code === 'Engineering') return d.type === 'ADR' || d.type === 'HLD' || d.type === 'LLD';
-              if (activeDiv.code === 'Product') return d.type === 'PRD' || d.type === 'BRD' || d.type === 'UX_SPEC';
-              if (activeDiv.code === 'Marketing') return d.type === 'MARKETING' || d.type === 'BLOG';
-              if (activeDiv.code === 'DevOps') return d.type === 'DEVOPS' || d.type === 'DOCKER';
-              return true;
+              const docType = (d.type || '').toUpperCase();
+              if (activeDiv.code === 'Executive') return docType === 'BIZ_CASE' || docType === 'STRATEGY' || docType === 'BUDGET';
+              if (activeDiv.code === 'Product') return docType === 'PRD' || docType === 'BRD' || docType === 'UX_SPEC';
+              if (activeDiv.code === 'Engineering') return docType === 'ADR' || docType === 'HLD' || docType === 'LLD' || docType === 'CODE';
+              if (activeDiv.code === 'Quality Assurance') return docType === 'QA' || docType === 'TEST_PLAN' || docType === 'AUDIT';
+              if (activeDiv.code === 'DevOps') return docType === 'DEVOPS' || docType === 'DOCKER' || docType === 'DEPLOY';
+              if (activeDiv.code === 'Marketing') return docType === 'MARKETING' || docType === 'BLOG' || docType === 'RELEASE';
+              return false;
             });
 
             return (

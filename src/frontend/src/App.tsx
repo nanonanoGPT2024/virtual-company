@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Layout, Users, ClipboardList, Lightbulb, RefreshCw, AlertTriangle, Menu, ChevronLeft, ChevronRight, MessageSquare, FileText, Eye, GitBranch, Download } from 'lucide-react';
 import VirtualOffice from './components/VirtualOffice';
 import ProjectPipeline from './components/ProjectPipeline';
@@ -67,6 +67,17 @@ function App() {
   const [isChatBubbleOpen, setIsChatBubbleOpen] = useState<boolean>(false);
   const [isFeedOpen, setIsFeedOpen] = useState<boolean>(true);
   const [activeChatAgent, setActiveChatAgent] = useState<Agent | null>(null);
+  const chatBottomRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    chatBottomRef.current?.scrollIntoView({ behavior });
+  };
+
+  useEffect(() => {
+    if (isChatBubbleOpen) {
+      scrollToBottom('smooth');
+    }
+  }, [chatMessages, isChatBubbleOpen, chatSending]);
   
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     const saved = localStorage.getItem('sidebar_collapsed');
@@ -912,6 +923,7 @@ function App() {
                   Sovereign sedang mengetik...
                 </div>
               )}
+              <div ref={chatBottomRef} />
             </div>
 
             {/* Input Form */}
@@ -953,20 +965,41 @@ function App() {
                     setChatSending(false);
                   });
               }}
-              style={{ padding: '10px', borderTop: '1px solid #334155', display: 'flex', gap: '8px', background: '#090d16' }}
+              style={{ padding: '10px', borderTop: '1px solid #334155', display: 'flex', alignItems: 'flex-end', gap: '8px', background: '#090d16' }}
             >
-              <input
-                type="text"
+              <textarea
                 placeholder={activeChatAgent ? `Tanya sesuatu ke ${activeChatAgent.name}...` : "Kirim pesan ke Sovereign..."}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    (e.currentTarget.form as HTMLFormElement)?.requestSubmit();
+                  }
+                }}
+                rows={1}
                 disabled={chatSending}
-                style={{ flex: 1, padding: '8px 12px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#fff', fontSize: '0.85rem', outline: 'none' }}
+                style={{ 
+                  flex: 1, 
+                  padding: '8px 12px', 
+                  background: '#1e293b', 
+                  border: '1px solid #334155', 
+                  borderRadius: '8px', 
+                  color: '#fff', 
+                  fontSize: '0.85rem', 
+                  outline: 'none',
+                  resize: 'none',
+                  minHeight: '38px',
+                  maxHeight: '120px',
+                  lineHeight: '1.4',
+                  fontFamily: 'inherit',
+                  overflowY: 'auto'
+                }}
               />
               <button 
                 type="submit" 
                 disabled={chatSending || !chatInput.trim()}
-                style={{ padding: '8px 14px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', opacity: (chatSending || !chatInput.trim()) ? 0.6 : 1 }}
+                style={{ padding: '8px 14px', height: '38px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', opacity: (chatSending || !chatInput.trim()) ? 0.6 : 1, flexShrink: 0 }}
               >
                 Send
               </button>

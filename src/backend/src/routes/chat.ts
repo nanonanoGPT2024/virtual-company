@@ -10,12 +10,15 @@ const getChatMessages: RequestHandler = async (req, res) => {
     const targetAgentId = (agent_id as string) || 'EMP-EXE-001';
 
     const query = `
-      SELECT * FROM chat_messages 
-      WHERE (sender_id = 'OWNER' AND recipient_id = $1) 
-         OR (sender_id = $1 AND (recipient_id = 'OWNER' OR recipient_id IS NULL))
-         OR (recipient_id = $1)
-      ORDER BY created_at ASC 
-      LIMIT 100
+      SELECT * FROM (
+        SELECT * FROM chat_messages 
+        WHERE (sender_id = 'OWNER' AND recipient_id = $1) 
+           OR (sender_id = $1 AND (recipient_id = 'OWNER' OR recipient_id IS NULL))
+           OR (recipient_id = $1)
+        ORDER BY created_at DESC 
+        LIMIT 100
+      ) sub
+      ORDER BY created_at ASC
     `;
 
     const result = await pool.query(query, [targetAgentId]);
@@ -64,7 +67,7 @@ const postChatMessage: RequestHandler = async (req, res) => {
     // 3. Call AI Model
     const openAiKey = process.env.OPENAI_API_KEY;
     const openAiBaseUrl = process.env.OPENAI_BASE_URL || 'http://localhost:20128/v1';
-    const openAiModel = 'ag/gemini-3.5-flash-low';
+    const openAiModel = process.env.OPENAI_MODEL || 'ag/gemini-3.7-flash-high';
 
     let agentReply = `Halo Owner, saya ${agent.name} (${agent.title}). Sistem saya siap menerima arahan.`;
 
@@ -136,14 +139,17 @@ Company context:
     `;
     await pool.query(insertAgentQuery, [agent.id, `${agent.name} (${agent.title})`, agentReply, 'OWNER']);
 
-    // 5. Fetch updated thread messages
+    // 5. Fetch updated thread messages (latest 100 messages)
     const queryThread = `
-      SELECT * FROM chat_messages 
-      WHERE (sender_id = 'OWNER' AND recipient_id = $1) 
-         OR (sender_id = $1 AND (recipient_id = 'OWNER' OR recipient_id IS NULL))
-         OR (recipient_id = $1)
-      ORDER BY created_at ASC 
-      LIMIT 100
+      SELECT * FROM (
+        SELECT * FROM chat_messages 
+        WHERE (sender_id = 'OWNER' AND recipient_id = $1) 
+           OR (sender_id = $1 AND (recipient_id = 'OWNER' OR recipient_id IS NULL))
+           OR (recipient_id = $1)
+        ORDER BY created_at DESC 
+        LIMIT 100
+      ) sub
+      ORDER BY created_at ASC
     `;
     const threadMessages = await pool.query(queryThread, [agent.id]);
     
