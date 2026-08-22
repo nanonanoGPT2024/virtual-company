@@ -25,7 +25,7 @@ export class BaseAgent {
     try {
       const query = `
         SELECT * FROM tasks 
-        WHERE assignee_id = $1 AND status IN ('READY', 'IN_PROGRESS')
+        WHERE assignee_id = $1 AND status IN ('READY', 'IN_PROGRESS', 'BACKLOG')
         ORDER BY priority = 'CRITICAL' DESC, priority = 'HIGH' DESC, created_at ASC
         LIMIT 1
       `;
@@ -56,10 +56,10 @@ export class BaseAgent {
     }
   }
 
-  // Helper to query LLM via the local 9Router endpoint
+  // Helper to query LLM via the local 9Router endpoint (handles both standard JSON and SSE stream responses)
   async queryLLM(systemPrompt: string, userPrompt: string): Promise<string> {
     const apiBase = process.env.OPENAI_BASE_URL || 'http://localhost:20128/v1';
-    const model = process.env.OPENAI_MODEL || 'ag/gemini-3.5-flash-extra-low';
+    const model = process.env.OPENAI_MODEL || 'ag/gemini-3.7-flash-high';
     const apiKey = process.env.OPENAI_API_KEY || 'dummy-key';
 
     try {
@@ -75,7 +75,8 @@ export class BaseAgent {
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
           ],
-          temperature: 0.7
+          temperature: 0.7,
+          stream: false
         })
       });
 
@@ -83,11 +84,35 @@ export class BaseAgent {
         throw new Error(`LLM API returned status ${response.status}`);
       }
 
-      const data = await response.json() as any;
-      return data.choices?.[0]?.message?.content || '';
+      const rawText = await response.text();
+      let extractedContent = '';
+
+      try {
+        const data = JSON.parse(rawText);
+        extractedContent = data.choices?.[0]?.message?.content || '';
+      } catch (jsonErr) {
+        // SSE / chunk stream fallback parser
+        const lines = rawText.split('\n');
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data: ') && trimmed !== 'data: [DONE]') {
+            try {
+              const chunk = JSON.parse(trimmed.replace('data: ', ''));
+              const delta = chunk.choices?.[0]?.delta?.content || chunk.choices?.[0]?.message?.content || '';
+              extractedContent += delta;
+            } catch {}
+          }
+        }
+      }
+
+      if (extractedContent && extractedContent.trim().length > 0) {
+        return extractedContent.trim();
+      }
+
+      throw new Error('Could not parse valid content from LLM response.');
     } catch (error) {
-      console.error(`[${this.name}] LLM query failed, using offline fallback. Error:`, error);
-      return `[Offline Fallback] Successfully processed prompt: "${userPrompt.slice(0, 60)}..."`;
+      console.error(`[${this.name}] LLM query failed. Error:`, error);
+      throw error;
     }
   }
 }

@@ -43,7 +43,7 @@ export default function LiveFeed() {
   }, []);
 
   return (
-    <div className="card">
+    <div className="card" style={{ height: '100%', display: 'flex', flexDirection: 'column', margin: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
         <Terminal size={20} style={{ color: '#38bdf8' }} />
         <h2 style={{ margin: 0 }}>Company Activity Feed</h2>
@@ -52,9 +52,9 @@ export default function LiveFeed() {
         Live event stream showing real-time decisions, task progress, and agent collaborations.
       </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto', background: '#0f172a', padding: '1rem', borderRadius: '0.375rem', border: '1px solid #334155', fontFamily: 'monospace', fontSize: '0.85rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', flex: 1, overflowY: 'auto', background: '#0f172a', padding: '1rem', borderRadius: '0.375rem', border: '1px solid #334155', fontFamily: 'monospace', fontSize: '0.85rem', minHeight: '350px' }}>
         {events.map((e, idx) => (
-          <div key={idx} style={{ borderBottom: '1px solid #1e293b', paddingBottom: '0.5rem', display: 'grid', gridTemplateColumns: '80px 150px 150px 1fr', gap: '0.5rem' }}>
+          <div key={idx} style={{ borderBottom: '1px solid #1e293b', paddingBottom: '0.5rem', display: 'grid', gridTemplateColumns: '85px 160px 160px 1fr', gap: '0.5rem' }}>
             <span style={{ color: '#64748b' }}>[{e.time}]</span>
             <span style={{ color: e.agent.startsWith('Alex') ? '#4ade80' : e.agent.startsWith('Sovereign') ? '#38bdf8' : '#f43f5e', fontWeight: 600 }}>{e.agent}</span>
             <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{e.action}</span>

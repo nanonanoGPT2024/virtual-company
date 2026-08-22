@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import { testConnection } from './config/db.js';
 
 // Import routes with extension for NodeNext resolution
@@ -13,6 +14,8 @@ import factoryRouter from './routes/factory.js';
 import researchRouter from './routes/research.js';
 import marketingRouter from './routes/marketing.js';
 import executiveRouter from './routes/executive.js';
+import chatRouter from './routes/chat.js';
+import projectsRouter from './routes/projects.js';
 
 dotenv.config();
 
@@ -32,14 +35,7 @@ app.get('/health', async (req, res) => {
   });
 });
 
-// Root route
-app.get('/', (req, res) => {
-  res.json({
-    message: 'Welcome to AI Virtual Company OS API Backend Server',
-    version: '1.0.0',
-    documentation: '/health for service status'
-  });
-});
+// Root route removed to let static frontend files serve on /
 
 // Map routes
 app.use('/api/tasks', tasksRouter);
@@ -51,6 +47,20 @@ app.use('/api/factory', factoryRouter);
 app.use('/api/research', researchRouter);
 app.use('/api/marketing', marketingRouter);
 app.use('/api/executive', executiveRouter);
+app.use('/api/chat', chatRouter);
+app.use('/api/projects', projectsRouter);
+
+// Serve static frontend files from dist-prod
+const distPath = '/mnt/d/explore/virtual-company/src/frontend/dist-prod';
+app.use(express.static(distPath));
+
+// Serve index.html for any frontend routing, except API routes
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+  res.sendFile(path.join(distPath, 'index.html'));
+});
 
 // Start the server
 const startServer = async () => {
