@@ -16,6 +16,8 @@ export interface FeedEvent {
 interface LiveFeedProps {
   mode?: 'fullscreen' | 'widget';
   apiBase?: string;
+  authToken?: string | null;
+  inspectUserId?: string | null;
 }
 
 const DEFAULT_AGENTS_META: Record<string, { role: string; color: string; bg: string }> = {
@@ -37,7 +39,7 @@ const DEFAULT_AGENTS_META: Record<string, { role: string; color: string; bg: str
   'Kaelen': { role: 'UI/UX Spec', color: '#fda4af', bg: 'rgba(253, 164, 175, 0.2)' }
 };
 
-export default function LiveFeed({ mode = 'widget', apiBase }: LiveFeedProps) {
+export default function LiveFeed({ mode = 'widget', apiBase, authToken, inspectUserId }: LiveFeedProps) {
   const [filter, setFilter] = useState<'ALL' | 'TECH' | 'PROD' | 'GROWTH'>('ALL');
   const [events, setEvents] = useState<FeedEvent[]>([]);
   const feedEndRef = useRef<HTMLDivElement | null>(null);
@@ -54,7 +56,18 @@ export default function LiveFeed({ mode = 'widget', apiBase }: LiveFeedProps) {
 
   const fetchActivities = async () => {
     try {
-      const res = await fetch(`${getApiUrl()}/activities?limit=50&sort=ASC`);
+      const token = authToken || localStorage.getItem('company_os_token');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      let url = `${getApiUrl()}/activities?limit=50&sort=ASC`;
+      if (inspectUserId) {
+        url += `&user_id=${encodeURIComponent(inspectUserId)}`;
+      }
+
+      const res = await fetch(url, { headers });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {

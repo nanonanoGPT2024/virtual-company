@@ -1,16 +1,15 @@
+import path from 'path';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ path: '/mnt/d/explore/virtual-company/src/backend/.env' });
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  // Fallbacks if DATABASE_URL is not provided:
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432', 10),
+  host: process.env.DB_HOST || '127.0.0.1',
+  port: parseInt(process.env.DB_PORT || '5433', 10),
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_NAME || 'company_virtual_os',
+  database: process.env.DB_NAME || 'company_os',
 });
 
 // Test helper to verify database connectivity

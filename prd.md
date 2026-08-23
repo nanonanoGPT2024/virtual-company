@@ -1,11 +1,11 @@
-# Product Requirements Document (PRD) — v2.3
+# Product Requirements Document (PRD) — v2.4
 # AI Virtual Company OS — Autonomous Software & Product Studio
 
 | Attribute | Details |
 | :--- | :--- |
 | **Product Name** | AI Virtual Company OS |
-| **Version** | 2.3 (One-Click Public Tunnel, AI Spec Enrichment & Autonomous Alerts) |
-| **Status** | Approved by Owner / Fully Implemented |
+| **Version** | 2.4 (Enterprise Multi-Tenant Data Isolation & Clean Sandbox Architecture) |
+| **Status** | Approved by Owner / Fully Implemented & QA Verified |
 | **Product Type** | AI-Native Autonomous Software & Product Studio OS |
 | **Owner / Root** | Human Founder / Root Owner (Nano) |
 
@@ -15,26 +15,21 @@
 
 **AI Virtual Company OS** adalah platform sistem operasi perusahaan virtual otonom. Platform ini mengorkestrasi agen-agen AI dengan struktur organisasi lengkap untuk memproduksi aplikasi/software nyata secara end-to-end dengan isolasi proyek mandiri (`/projects/{slug}/`).
 
-### Pembaruan Fitur & UX Terkini (v2.3):
-1. **⚡ One-Click Instant Public Tunnel per Project:**
-   - Menyediakan tombol *Share Public Link* / *Buka Tunnel Publik* langsung di kartu project dan pipeline.
-   - Endpoint `POST /api/projects/:id/tunnel/start` & `stop` memfasilitasi pembuatan link HTTPS publik instan via reverse tunnel background (`*.lhr.life`).
-   - Klien maupun Owner dapat membagikan link live demo aplikasi yang baru selesai di-deploy ke pihak eksternal tanpa konfigurasi port forwarding manual.
-2. **🧠 Interactive PRD Auto-Enrichment & Spec Builder:**
-   - Tombol *✨ Auto-Enrich AI Spec* pada modal pembuatan project baru.
-   - Menggunakan LLM latensi rendah (`ag/gemini-3.7-flash-low`) via endpoint `POST /api/projects/enrich-spec` untuk secara instan menyusun:
-     * Nama aplikasi & ringkasan arsitektur profesional.
-     * Pilihan tema warna UI rekomendasi.
-     * Skema database awal (tabel & relasi field).
-     * Modul & fitur kunci yang bisa dicentang langsung oleh pengguna sebelum pipeline dimulai.
-3. **🔔 Autonomous Stage Audio & Smart Toast Notification:**
-   - Sintesis audio bawaan (*Web Audio API*) menghasilkan soft chime berfrekuensi ganda (D5/A5) saat pengerjaan berpindah divisi (PRD $\to$ Koding $\to$ QA $\to$ Deploy).
-   - Smart Toast Notification di sudut layar menyajikan update real-time progress agen.
-   - Dilengkapi toggle *🔔 Sound: ON/OFF* di header atas yang tersimpan di `localStorage`.
+### Standar Isolasi Multi-Tenant Mutlak (v2.4 - Zero Cross-Tenant Leakage):
+1. **🚀 Project Pipeline Data Isolation:**
+   - Client hanya melihat project miliknya sendiri. Jika belum login atau token invalid, endpoint `GET /api/projects` memblokir akses (HTTP 401) dan tidak membocorkan data global.
+   - Root Owner memiliki tampilan **Master Directory** dan dapat mengklik `[🔍 Lihat Pipeline]` pada user tertentu untuk memfilter tampilan pipeline khusus user tersebut secara akurat.
+2. **⚡ Live Activity Stream Scoping:**
+   - Log aktivitas agen AI (`/api/activities`) difilter secara ketat berdasarkan `project_id` yang dimiliki oleh `user_id` pembuatnya. Client A tidak akan melihat pergerakan agen dari project Client B.
+3. **💡 Idea Radar Private Scans:**
+   - Setiap scan ide baru (`POST /api/ideas/scan`) terikat pada `user_id` akun pembuatnya.
+4. **🛡️ Full-Screen Strict Auth Shield:**
+   - Sistem menghilangkan seluruh auto-login / hardcoded token.
+   - Pengguna baru wajib login / register melalui modal glassmorphic sebelum aplikasi merender tampilan workspace.
 
 ---
 
-## 2. Multi-User Hierarchy & Access Control (v2.2):
+## 2. Multi-User Hierarchy & Access Control (v2.4):
 
 ### A. Hirarki Perorangan (User-Centric Architecture)
 Sistem menggunakan hirarki berbasis user murni (`1 User Account = Owns Their Own Projects`):

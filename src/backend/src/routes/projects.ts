@@ -186,23 +186,30 @@ router.get('/template/project-spec.docx', async (req, res) => {
   }
 });
 
-// GET all projects (RBAC protected: CLIENT sees only their projects, OWNER sees all)
+// GET all projects (Strict Multi-Tenant Protection)
 router.get('/', authenticateUser, async (req, res) => {
   try {
     const user = (req as any).user;
-    const { user_id } = req.query;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+    }
 
+    const { user_id } = req.query;
     let query = 'SELECT * FROM projects';
     const params: any[] = [];
 
-    if (user && user.role === 'CLIENT') {
-      // Client is restricted to their own projects
+    if (user.role === 'CLIENT') {
+      // Client is STRICTLY restricted to projects with their own user_id
       query += ' WHERE user_id = $1';
       params.push(user.id);
-    } else if (user_id) {
-      // Owner or filtered query by user_id
-      query += ' WHERE user_id = $1';
-      params.push(user_id);
+    } else if (user.role === 'OWNER') {
+      // Owner can view all or filter by specific client user_id
+      if (user_id) {
+        query += ' WHERE user_id = $1';
+        params.push(user_id);
+      }
+    } else {
+      return res.json([]);
     }
 
     query += ' ORDER BY created_at DESC';

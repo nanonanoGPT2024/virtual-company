@@ -26,6 +26,8 @@ interface ProjectPipelineProps {
   projects: ProjectItem[];
   onProjectCreated?: () => void;
   apiBase?: string;
+  inspectUser?: { id: string; name: string } | null;
+  onClearInspectUser?: () => void;
 }
 
 // 6 Standard Division Stages in company pipeline flow including DevOps & WSL Deployment
@@ -110,7 +112,13 @@ const PIPELINE_DIVISIONS: DivisionStage[] = [
   }
 ];
 
-export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 'http://localhost:4000/api' }: ProjectPipelineProps) {
+export default function ProjectPipeline({ 
+  projects, 
+  onProjectCreated, 
+  apiBase = 'http://localhost:4000/api',
+  inspectUser,
+  onClearInspectUser 
+}: ProjectPipelineProps) {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedProjectDetail, setSelectedProjectDetail] = useState<any | null>(null);
   const [selectedDivisionIndex, setSelectedDivisionIndex] = useState<number>(4); // Default to DevOps or active
@@ -476,6 +484,64 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
       {/* ========================================================================= */}
       {!selectedProject ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Active Inspect User Filter Banner */}
+          {inspectUser && (
+            <div style={{
+              backgroundColor: 'rgba(56, 189, 248, 0.12)',
+              border: '1px solid rgba(56, 189, 248, 0.4)',
+              borderRadius: '0.75rem',
+              padding: '0.85rem 1.25rem',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+              boxShadow: '0 4px 15px rgba(56, 189, 248, 0.15)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{ fontSize: '1.1rem' }}>🔍</span>
+                <div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#f8fafc' }}>
+                    Filter Aktif: Menampilkan Proyek Milik <span style={{ color: '#38bdf8' }}>{inspectUser.name}</span> ({projects.length} Proyek)
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                    Data terisolasi khusus akun user ID: <code>{inspectUser.id}</code>
+                  </span>
+                </div>
+              </div>
+
+              {onClearInspectUser && (
+                <button
+                  onClick={onClearInspectUser}
+                  style={{
+                    backgroundColor: '#1e293b',
+                    color: '#f8fafc',
+                    border: '1px solid #334155',
+                    padding: '0.4rem 0.85rem',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    transition: 'all 0.15s'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.backgroundColor = '#ef4444';
+                    e.currentTarget.style.color = '#fff';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.backgroundColor = '#1e293b';
+                    e.currentTarget.style.color = '#f8fafc';
+                  }}
+                >
+                  ✕ Tampilkan Semua Proyek
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Header Summary with Create Project Button */}
           <div className="card" style={{ margin: 0, padding: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
@@ -518,271 +584,302 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
           </div>
 
           {/* Project Cards Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.5rem' }}>
-            {projects.map((project) => {
-              const { currentDivision, activeDivIdx, isClosed, progressPercent } = getProjectDivisionState(project);
+          {projects.length === 0 ? (
+            <div className="card" style={{ padding: '3rem 2rem', textAlign: 'center', color: '#94a3b8' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📂</div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc', margin: '0 0 0.5rem 0' }}>
+                {inspectUser ? `Belum ada proyek yang dibuat oleh ${inspectUser.name}.` : 'Belum ada proyek yang terdaftar.'}
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: '#64748b', maxWidth: '400px', margin: '0 auto 1.5rem auto' }}>
+                {inspectUser ? 'User ini belum menginisiasi project apapun. Klik tombol di bawah untuk membuat project baru.' : 'Mulai inisiasi project otonom pertama Anda sekarang.'}
+              </p>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                style={{
+                  backgroundColor: '#0284c7',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '0.6rem 1.25rem',
+                  borderRadius: '0.5rem',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <Plus size={16} />
+                Buat Project Sekarang
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.5rem' }}>
+              {projects.map((project) => {
+                const { currentDivision, activeDivIdx, isClosed, progressPercent } = getProjectDivisionState(project);
 
-              return (
-                <div
-                  key={project.id}
-                  onClick={() => {
-                    setSelectedProjectId(project.id);
-                    setSelectedDivisionIndex(activeDivIdx);
-                  }}
-                  className="card"
-                  style={{
-                    margin: 0,
-                    padding: '1.5rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    border: '1px solid #334155',
-                    transition: 'transform 0.2s ease, border-color 0.2s ease',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#38bdf8';
-                    e.currentTarget.style.transform = 'translateY(-3px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#334155';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  {/* Top Status Tags */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                      <span 
-                        style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          backgroundColor: isClosed ? 'rgba(34, 197, 94, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                          color: isClosed ? '#22c55e' : '#38bdf8',
-                          border: isClosed ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.35rem'
-                        }}
-                      >
-                        {isClosed ? <Check size={12} /> : <PlayCircle size={12} />}
-                        STATUS: {isClosed ? 'CLOSED (SELESAI)' : 'OPEN (BERJALAN)'}
-                      </span>
-
-                      <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
-                        ID: {project.id.slice(0, 8)}
-                      </span>
-
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <button
-                          title="Download Bundle (.ZIP)"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const apiTarget = apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api");
-                            window.open(`${apiTarget}/projects/${project.id}/download-zip`, '_blank');
-                          }}
+                return (
+                  <div
+                    key={project.id}
+                    onClick={() => {
+                      setSelectedProjectId(project.id);
+                      setSelectedDivisionIndex(activeDivIdx);
+                    }}
+                    className="card"
+                    style={{
+                      margin: 0,
+                      padding: '1.5rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      border: '1px solid #334155',
+                      transition: 'transform 0.2s ease, border-color 0.2s ease',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#38bdf8';
+                      e.currentTarget.style.transform = 'translateY(-3px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#334155';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    {/* Top Status Tags */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                        <span 
                           style={{
-                            background: 'rgba(2, 132, 199, 0.15)',
-                            border: '1px solid rgba(56, 189, 248, 0.3)',
-                            color: '#38bdf8',
-                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
                             padding: '3px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: isClosed ? 'rgba(34, 197, 94, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                            color: isClosed ? '#22c55e' : '#38bdf8',
+                            border: isClosed ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem'
+                          }}
+                        >
+                          {isClosed ? <Check size={12} /> : <PlayCircle size={12} />}
+                          STATUS: {isClosed ? 'CLOSED (SELESAI)' : 'OPEN (BERJALAN)'}
+                        </span>
+
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
+                          ID: {project.id.slice(0, 8)}
+                        </span>
+
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button
+                            title="Download Bundle (.ZIP)"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const apiTarget = apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api");
+                              window.open(`${apiTarget}/projects/${project.id}/download-zip`, '_blank');
+                            }}
+                            style={{
+                              background: 'rgba(2, 132, 199, 0.15)',
+                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                              color: '#38bdf8',
+                              borderRadius: '4px',
+                              padding: '3px 8px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#0284c7';
+                              e.currentTarget.style.color = '#ffffff';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'rgba(2, 132, 199, 0.15)';
+                              e.currentTarget.style.color = '#38bdf8';
+                            }}
+                          >
+                            <Download size={13} />
+                            ZIP
+                          </button>
+
+                          <button
+                            title="Hapus Project"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setProjectToDelete(project);
+                            }}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                            color: '#ef4444',
+                            borderRadius: '4px',
+                            padding: '3px 6px',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            gap: '3px',
                             fontSize: '0.75rem',
-                            fontWeight: 700,
+                            fontWeight: 600,
                             transition: 'all 0.2s'
                           }}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.background = '#0284c7';
+                            e.currentTarget.style.background = '#ef4444';
                             e.currentTarget.style.color = '#ffffff';
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(2, 132, 199, 0.15)';
-                            e.currentTarget.style.color = '#38bdf8';
+                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                            e.currentTarget.style.color = '#ef4444';
                           }}
                         >
-                          <Download size={13} />
-                          ZIP
+                          <Trash2 size={13} />
+                          Hapus
                         </button>
+                      </div>
+                      </div>
 
-                        <button
-                          title="Hapus Project"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setProjectToDelete(project);
-                          }}
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.1)',
-                          border: '1px solid rgba(239, 68, 68, 0.25)',
-                          color: '#ef4444',
-                          borderRadius: '4px',
-                          padding: '3px 6px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          fontSize: '0.75rem',
-                          fontWeight: 600,
-                          transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = '#ef4444';
-                          e.currentTarget.style.color = '#ffffff';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-                          e.currentTarget.style.color = '#ef4444';
-                        }}
-                      >
-                        <Trash2 size={13} />
-                        Hapus
-                      </button>
-                    </div>
-                    </div>
+                      <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#f8fafc', margin: '0 0 0.5rem 0' }}>
+                        {project.name}
+                      </h3>
+                      <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 0.75rem 0', lineHeight: 1.45 }}>
+                        {project.description || 'Tidak ada deskripsi project.'}
+                      </p>
 
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#f8fafc', margin: '0 0 0.5rem 0' }}>
-                      {project.name}
-                    </h3>
-                    <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 0.75rem 0', lineHeight: 1.45 }}>
-                      {project.description || 'Tidak ada deskripsi project.'}
-                    </p>
-
-                    {/* Instant Public Tunnel Badge / Action on Card */}
-                    <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      {project.tunnel_url ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', backgroundColor: 'rgba(52, 211, 153, 0.12)', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem' }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#34d399', animation: 'pulse 1.5s infinite' }} />
-                          <span style={{ color: '#34d399', fontWeight: 700 }}>TUNNEL LIVE:</span>
-                          <a 
-                            href={project.tunnel_url} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            onClick={e => e.stopPropagation()} 
-                            style={{ color: '#38bdf8', textDecoration: 'underline', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}
-                          >
-                            {project.tunnel_url.replace(/^https?:\/\//, '')}
-                            <ExternalLink size={11} />
-                          </a>
+                      {/* Instant Public Tunnel Badge / Action on Card */}
+                      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {project.tunnel_url ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', backgroundColor: 'rgba(52, 211, 153, 0.12)', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#34d399', animation: 'pulse 1.5s infinite' }} />
+                            <span style={{ color: '#34d399', fontWeight: 700 }}>TUNNEL LIVE:</span>
+                            <a 
+                              href={project.tunnel_url} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              onClick={e => e.stopPropagation()} 
+                              style={{ color: '#38bdf8', textDecoration: 'underline', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}
+                            >
+                              {project.tunnel_url.replace(/^https?:\/\//, '')}
+                              <ExternalLink size={11} />
+                            </a>
+                            <button
+                              title="Copy Public Link"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyTunnelUrl(project.tunnel_url!, project.id);
+                              }}
+                              style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                            >
+                              {copiedTunnelId === project.id ? <CheckCheck size={13} color="#34d399" /> : <Copy size={13} />}
+                            </button>
+                          </div>
+                        ) : (
                           <button
-                            title="Copy Public Link"
+                            type="button"
+                            disabled={tunnelLoadingId === project.id}
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleCopyTunnelUrl(project.tunnel_url!, project.id);
+                              handleToggleTunnel(project);
                             }}
-                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                            style={{
+                              background: 'rgba(56, 189, 248, 0.1)',
+                              border: '1px solid rgba(56, 189, 248, 0.25)',
+                              color: '#38bdf8',
+                              borderRadius: '6px',
+                              padding: '3px 8px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.2)'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'}
                           >
-                            {copiedTunnelId === project.id ? <CheckCheck size={13} color="#34d399" /> : <Copy size={13} />}
+                            <Globe size={13} />
+                            {tunnelLoadingId === project.id ? 'Menghubungkan Tunnel...' : '⚡ Buka Tunnel Publik'}
                           </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={tunnelLoadingId === project.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleTunnel(project);
-                          }}
-                          style={{
-                            background: 'rgba(56, 189, 248, 0.1)',
-                            border: '1px solid rgba(56, 189, 248, 0.25)',
-                            color: '#38bdf8',
-                            borderRadius: '6px',
-                            padding: '3px 8px',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            transition: 'all 0.15s'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.2)'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'}
-                        >
-                          <Globe size={13} />
-                          {tunnelLoadingId === project.id ? 'Menghubungkan Tunnel...' : '⚡ Buka Tunnel Publik'}
-                        </button>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Division Status Badge & Progress */}
-                  <div>
-                    {/* Current Division Box */}
-                    <div
-                      style={{
-                        backgroundColor: '#0f172a',
-                        border: `1px solid ${currentDivision.color}44`,
-                        padding: '0.75rem 1rem',
-                        borderRadius: '0.5rem',
-                        marginBottom: '1rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <div
-                          style={{
-                            width: '10px',
-                            height: '10px',
-                            borderRadius: '50%',
-                            backgroundColor: currentDivision.color,
-                            boxShadow: `0 0 8px ${currentDivision.color}`
-                          }}
-                        />
-                        <div>
-                          <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                            Posisi Divisi Sekarang:
+                    {/* Division Status Badge & Progress */}
+                    <div>
+                      {/* Current Division Box */}
+                      <div
+                        style={{
+                          backgroundColor: '#0f172a',
+                          border: `1px solid ${currentDivision.color}44`,
+                          padding: '0.75rem 1rem',
+                          borderRadius: '0.5rem',
+                          marginBottom: '1rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <div
+                            style={{
+                              width: '10px',
+                              height: '10px',
+                              borderRadius: '50%',
+                              backgroundColor: currentDivision.color,
+                              boxShadow: `0 0 8px ${currentDivision.color}`
+                            }}
+                          />
+                          <div>
+                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
+                              Posisi Divisi Sekarang:
+                            </div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f8fafc' }}>
+                              {currentDivision.name}
+                            </div>
                           </div>
-                          <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f8fafc' }}>
-                            {currentDivision.name}
-                          </div>
+                        </div>
+
+                        <span style={{ fontSize: '0.75rem', color: currentDivision.color, fontWeight: 600 }}>
+                          Tahap {activeDivIdx + 1}/6
+                        </span>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div style={{ marginBottom: '0.75rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
+                          <span>Progress Keseluruhan</span>
+                          <strong style={{ color: '#cbd5e1' }}>{progressPercent}%</strong>
+                        </div>
+                        <div style={{ width: '100%', height: '6px', backgroundColor: '#0f172a', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div 
+                            style={{ 
+                              width: `${progressPercent}%`, 
+                              height: '100%', 
+                              backgroundColor: isClosed ? '#22c55e' : '#0284c7', 
+                              borderRadius: '3px',
+                              transition: 'width 0.4s ease'
+                            }} 
+                          />
                         </div>
                       </div>
 
-                      <span style={{ fontSize: '0.75rem', color: currentDivision.color, fontWeight: 600 }}>
-                        Tahap {activeDivIdx + 1}/6
-                      </span>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div style={{ marginBottom: '0.75rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
-                        <span>Progress Keseluruhan</span>
-                        <strong style={{ color: '#cbd5e1' }}>{progressPercent}%</strong>
+                      {/* Footer Meta Details */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #334155', paddingTop: '0.75rem', fontSize: '0.8rem', color: '#94a3b8' }}>
+                        <span>Budget: <strong style={{ color: '#22c55e' }}>${parseFloat(project.budget_usd || '0').toLocaleString()}</strong></span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#38bdf8', fontWeight: 600 }}>
+                          Buka Diagram Alur <ChevronRight size={14} />
+                        </span>
                       </div>
-                      <div style={{ width: '100%', height: '6px', backgroundColor: '#0f172a', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div 
-                          style={{ 
-                            width: `${progressPercent}%`, 
-                            height: '100%', 
-                            backgroundColor: isClosed ? '#22c55e' : '#0284c7', 
-                            borderRadius: '3px',
-                            transition: 'width 0.4s ease'
-                          }} 
-                        />
-                      </div>
-                    </div>
-
-                    {/* Footer Meta Details */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #334155', paddingTop: '0.75rem', fontSize: '0.8rem', color: '#94a3b8' }}>
-                      <span>Budget: <strong style={{ color: '#22c55e' }}>${parseFloat(project.budget_usd || '0').toLocaleString()}</strong></span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#38bdf8', fontWeight: 600 }}>
-                        Buka Diagram Alur <ChevronRight size={14} />
-                      </span>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       ) : (
         /* ========================================================================= */

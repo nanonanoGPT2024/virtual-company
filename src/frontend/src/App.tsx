@@ -74,14 +74,14 @@ export default function App() {
   const [isTheaterMode, setIsTheaterMode] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d');
 
-  // Multi-User Auth State
-  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('company_os_token') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJVU1ItT1dORVItMDAxIiwiZW1haWwiOiJuYW5vQGNvbXBhbnkub3MiLCJyb2xlIjoiT1dORVIiLCJpYXQiOjE3ODc0ODAyNDYwOTR9.u4p6rQE-24Bfz2YI4189YPS6AcrE4Q16VRHtpvNob74');
+  // Multi-User Auth State (Strict - No Hardcoded Auto-Login)
+  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('company_os_token'));
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => {
     const saved = localStorage.getItem('company_os_user');
     if (saved) {
       try { return JSON.parse(saved); } catch (_) {}
     }
-    return { id: 'USR-OWNER-001', name: 'Nano', email: 'nano@company.os', role: 'OWNER' };
+    return null;
   });
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
@@ -91,6 +91,9 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState<string>('');
   const [authError, setAuthError] = useState<string>('');
   const [authSubmitting, setAuthSubmitting] = useState<boolean>(false);
+
+  // Filter Inspect User Projects State (Owner Mode)
+  const [inspectUser, setInspectUser] = useState<{ id: string; name: string } | null>(null);
 
   // Audio & Smart Toast Notification State
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
@@ -296,10 +299,12 @@ export default function App() {
     localStorage.removeItem('company_os_user');
     setAuthToken(null);
     setCurrentUser(null);
+    setInspectUser(null);
     setIsAuthModalOpen(true);
   };
 
-  const handleInspectUserProjects = (_userId: string, _userName: string) => {
+  const handleInspectUserProjects = (userId: string, userName: string) => {
+    setInspectUser({ id: userId, name: userName });
     setActiveTab('pipeline');
   };
 
@@ -430,6 +435,140 @@ export default function App() {
   }, [chatMessages, chatSending, isChatOpen]);
 
   const currentChatAgent = agents.find(a => a.id === selectedTargetId);
+
+  // Strict Auth Guard: If not logged in, render full-screen Auth Screen
+  if (!authToken || !currentUser) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        width: '100vw',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'radial-gradient(ellipse at top, #0f172a, #020617)',
+        padding: '1.5rem',
+        fontFamily: 'Inter, sans-serif'
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: '440px',
+          background: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(56, 189, 248, 0.4)',
+          borderRadius: '1.25rem',
+          padding: '2.25rem',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(56, 189, 248, 0.15)'
+        }}>
+          {/* Brand Logo Header */}
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <div style={{
+              width: '54px',
+              height: '54px',
+              borderRadius: '1rem',
+              background: 'linear-gradient(135deg, #0284c7, #4f46e5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              fontSize: '1.75rem',
+              fontWeight: 900,
+              margin: '0 auto 1rem auto',
+              boxShadow: '0 10px 25px -5px rgba(2, 132, 199, 0.5)'
+            }}>
+              V
+            </div>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f8fafc', margin: '0 0 0.4rem 0' }}>
+              VirtuLabs Company OS
+            </h1>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0 }}>
+              Autonomous Multi-Agent Enterprise Studio
+            </p>
+          </div>
+
+          {authError && (
+            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#fca5a5', padding: '0.65rem 0.85rem', borderRadius: '0.5rem', fontSize: '0.82rem', marginBottom: '1.25rem' }}>
+              {authError}
+            </div>
+          )}
+
+          <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+            {!isAuthModeLogin && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                  Nama Lengkap
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Budi Santoso"
+                  value={authName}
+                  onChange={(e) => setAuthName(e.target.value)}
+                  style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: '#090d16', border: '1px solid #334155', borderRadius: '0.6rem', color: '#fff', fontSize: '0.9rem', outline: 'none' }}
+                />
+              </div>
+            )}
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                Email Akun
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="nama@perusahaan.com"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: '#090d16', border: '1px solid #334155', borderRadius: '0.6rem', color: '#fff', fontSize: '0.9rem', outline: 'none' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                Kata Sandi (Password)
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="••••••••"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: '#090d16', border: '1px solid #334155', borderRadius: '0.6rem', color: '#fff', fontSize: '0.9rem', outline: 'none' }}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={authSubmitting}
+              style={{
+                marginTop: '0.5rem',
+                padding: '0.85rem',
+                background: 'linear-gradient(to right, #0284c7, #4f46e5)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '0.6rem',
+                fontWeight: 800,
+                fontSize: '0.95rem',
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(2, 132, 199, 0.4)',
+                transition: 'all 0.15s',
+                opacity: authSubmitting ? 0.7 : 1
+              }}
+            >
+              {authSubmitting ? 'Memverifikasi Kredensial...' : (isAuthModeLogin ? 'Masuk ke Workspace' : 'Daftar Akun Klien')}
+            </button>
+          </form>
+
+          <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.82rem', color: '#94a3b8' }}>
+            {isAuthModeLogin ? (
+              <span>Belum memiliki akun klien? <button type="button" onClick={() => { setIsAuthModeLogin(false); setAuthError(''); }} style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', fontWeight: 700 }}>Daftar Klien Baru</button></span>
+            ) : (
+              <span>Sudah memiliki akun? <button type="button" onClick={() => { setIsAuthModeLogin(true); setAuthError(''); }} style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', fontWeight: 700 }}>Login di sini</button></span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-container">
@@ -616,10 +755,6 @@ export default function App() {
               >
                 Full Screen
               </button>
-              <button onClick={() => window.location.reload()} className="btn-refresh" title="Reload page to sync all state">
-                <RefreshCw size={16} />
-                Refresh
-              </button>
             </div>
           </div>
         )}
@@ -731,7 +866,7 @@ export default function App() {
                     zIndex: 40,
                     boxShadow: '-10px 0 30px rgba(0, 0, 0, 0.7)'
                   }}>
-                    <LiveFeed />
+                    <LiveFeed authToken={authToken} inspectUserId={inspectUser?.id} />
                   </div>
                 )}
               </div>
@@ -740,7 +875,13 @@ export default function App() {
             {/* TAB 2: PROJECT PIPELINE HUB */}
             {activeTab === 'pipeline' && (
               <div className="flex flex-col gap-4">
-                <ProjectPipeline projects={projects} onProjectCreated={fetchData} apiBase={API_BASE} />
+                <ProjectPipeline 
+                  projects={inspectUser ? projects.filter(p => (p as any).user_id === inspectUser.id) : projects} 
+                  onProjectCreated={fetchData} 
+                  apiBase={API_BASE}
+                  inspectUser={inspectUser}
+                  onClearInspectUser={() => setInspectUser(null)}
+                />
               </div>
             )}
 
@@ -950,7 +1091,7 @@ export default function App() {
             {/* TAB 4: LIVE ACTIVITY STREAM */}
             {activeTab === 'activity' && (
               <div style={{ width: '100%', height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
-                <LiveFeed mode="fullscreen" />
+                <LiveFeed mode="fullscreen" authToken={authToken} inspectUserId={inspectUser?.id} />
               </div>
             )}
 
