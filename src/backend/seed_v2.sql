@@ -32,7 +32,8 @@ INSERT INTO employees (id, company_id, department_id, name, role, title, avatar_
 -- Engineering & Technology
 ('EMP-CTO',   'COMP-001', 'DEP-ENG',  'Marcus Sterling (CTO)', 'CTO', 'Chief Technology Officer', 'https://api.dicebear.com/7.x/bottts/svg?seed=MarcusCTO', 'Pimpinan teknologi yang menentukan arsitektur standar, performa, dan keandalan sistem.', 'IDLE'),
 ('EMP-ARCH',  'COMP-001', 'DEP-ENG',  'Viktor Cruz (Architect)', 'Architect', 'Principal Software Architect', 'https://api.dicebear.com/7.x/bottts/svg?seed=ViktorArch', 'Merancang skema database, kontrak REST API, modularitas kode, dan struktur direktori.', 'IDLE'),
-('EMP-DEV',   'COMP-001', 'DEP-ENG',  'Devron (Fullstack Dev)', 'Developer', 'Lead Fullstack Engineer', 'https://api.dicebear.com/7.x/bottts/svg?seed=DevronDev', 'Menulis kode backend (Node.js/Express) dan frontend (React/Tailwind) berkualitas tinggi.', 'IDLE'),
+('EMP-DEV',   'COMP-001', 'DEP-ENG',  'Devron (Backend Dev)', 'Backend Developer', 'Lead Backend Engineer', 'https://api.dicebear.com/7.x/bottts/svg?seed=DevronDev', 'Menulis kode backend (Node.js/Express/PostgreSQL), merancang REST API, dan mengelola persistensi data.', 'IDLE'),
+('EMP-FE',    'COMP-001', 'DEP-ENG',  'Anya (Frontend Dev)', 'Frontend Developer', 'Lead Frontend & UI Engineer', 'https://api.dicebear.com/7.x/bottts/svg?seed=AnyaFE', 'Pakar Frontend Engineer dan UI/UX Implementation yang memproduksi antarmuka modern, interaktif, responsif, dan estetis tinggi menggunakan Tailwind CSS, Lucide Icons, dan micro-interactions.', 'IDLE'),
 ('EMP-OPS',   'COMP-001', 'DEP-ENG',  'Cipher (DevOps / SRE)', 'DevOps', 'Cloud & Site Reliability Engineer', 'https://api.dicebear.com/7.x/bottts/svg?seed=CipherOps', 'Mengelola scaffolding proyek, script build, dan deployment otomatis ke process manager PM2.', 'IDLE'),
 
 -- Quality & Security

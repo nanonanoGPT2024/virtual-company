@@ -30,9 +30,13 @@ export interface ProjectDocument {
 export interface ProjectItem {
   id: string;
   name: string;
+  title?: string;
+  slug?: string;
   description: string;
   budget_usd: string;
   status: string;
+  port?: number;
+  pm2_name?: string;
   created_at: string;
   tasks: ProjectTask[];
   documents: ProjectDocument[];

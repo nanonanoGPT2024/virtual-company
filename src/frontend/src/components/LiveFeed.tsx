@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { Terminal } from 'lucide-react';
+import { Terminal, Radio } from 'lucide-react';
 
 export interface FeedEvent {
   id: string | number;
   time: string;
   agent: string;
+  agentNameOnly: string;
   role?: string;
   action: string;
   details: string;
   deptColor?: string;
+  deptBg?: string;
 }
 
 interface LiveFeedProps {
@@ -16,23 +18,23 @@ interface LiveFeedProps {
   apiBase?: string;
 }
 
-const DEFAULT_AGENTS_META: Record<string, { role: string; color: string }> = {
-  'Chief Aura': { role: 'CEO', color: '#38bdf8' },
-  'Marcus Sterling': { role: 'CTO', color: '#0ea5e9' },
-  'Viktor Cruz': { role: 'Architect', color: '#4ade80' },
-  'Devron': { role: 'Fullstack Dev', color: '#22c55e' },
-  'Cipher': { role: 'DevOps / SRE', color: '#06b6d4' },
-  'Sarah Jenkins': { role: 'PM', color: '#a78bfa' },
-  'Elena Vance': { role: 'CPO', color: '#10b981' },
-  'Tessa': { role: 'SQA Engineer', color: '#f87171' },
-  'Sentinel': { role: 'Sec Auditor', color: '#fb7185' },
-  'Morgan Drake': { role: 'CFO', color: '#fbbf24' },
-  'Justicia': { role: 'Legal Counsel', color: '#f59e0b' },
-  'Vibe': { role: 'Marketing Copy', color: '#c084fc' },
-  'Hunter': { role: 'Sales Lead', color: '#f472b6' },
-  'Dr. Aris': { role: 'Researcher', color: '#a3e635' },
-  'Page': { role: 'Tech Writer', color: '#38bdf8' },
-  'Kaelen': { role: 'UI/UX Spec', color: '#fda4af' }
+const DEFAULT_AGENTS_META: Record<string, { role: string; color: string; bg: string }> = {
+  'Chief Aura': { role: 'CEO', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)' },
+  'Marcus Sterling': { role: 'CTO', color: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.2)' },
+  'Viktor Cruz': { role: 'Architect', color: '#4ade80', bg: 'rgba(74, 222, 128, 0.2)' },
+  'Devron': { role: 'Fullstack Dev', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.2)' },
+  'Cipher': { role: 'DevOps / SRE', color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.2)' },
+  'Sarah Jenkins': { role: 'PM', color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.2)' },
+  'Elena Vance': { role: 'CPO', color: '#10b981', bg: 'rgba(16, 185, 129, 0.2)' },
+  'Tessa': { role: 'SQA Engineer', color: '#f87171', bg: 'rgba(248, 113, 113, 0.2)' },
+  'Sentinel': { role: 'Sec Auditor', color: '#fb7185', bg: 'rgba(251, 113, 133, 0.2)' },
+  'Morgan Drake': { role: 'CFO', color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.2)' },
+  'Justicia': { role: 'Legal Counsel', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.2)' },
+  'Vibe': { role: 'Marketing Copy', color: '#c084fc', bg: 'rgba(192, 132, 252, 0.2)' },
+  'Hunter': { role: 'Sales Lead', color: '#f472b6', bg: 'rgba(244, 114, 182, 0.2)' },
+  'Dr. Aris': { role: 'Researcher', color: '#a3e635', bg: 'rgba(163, 230, 53, 0.2)' },
+  'Page': { role: 'Tech Writer', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)' },
+  'Kaelen': { role: 'UI/UX Spec', color: '#fda4af', bg: 'rgba(253, 164, 175, 0.2)' }
 };
 
 export default function LiveFeed({ mode = 'widget', apiBase }: LiveFeedProps) {
@@ -57,23 +59,26 @@ export default function LiveFeed({ mode = 'widget', apiBase }: LiveFeedProps) {
         const data = await res.json();
         if (Array.isArray(data)) {
           const mapped: FeedEvent[] = data.map((item: any) => {
-            const agentName = item.agent_name || (item.agent_id ? item.agent_id.replace('EMP-', '') : 'System');
+            const rawAgentName = item.agent_name || (item.agent_id ? item.agent_id.replace('EMP-', '') : 'System');
             const agentRole = item.agent_role || 'Agent';
             const timeStr = item.created_at
               ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
               : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-            const metaKey = Object.keys(DEFAULT_AGENTS_META).find(k => agentName.includes(k) || agentRole.includes(k));
+            const metaKey = Object.keys(DEFAULT_AGENTS_META).find(k => rawAgentName.includes(k) || agentRole.includes(k));
             const deptColor = metaKey ? DEFAULT_AGENTS_META[metaKey].color : '#38bdf8';
+            const deptBg = metaKey ? DEFAULT_AGENTS_META[metaKey].bg : 'rgba(56, 189, 248, 0.2)';
 
             return {
               id: item.id || `act-${Math.random()}`,
               time: timeStr,
-              agent: `${agentName} (${agentRole})`,
+              agent: `${rawAgentName} (${agentRole})`,
+              agentNameOnly: rawAgentName,
               role: agentRole,
               action: item.action_type || 'ACTIVITY',
               details: item.summary || (typeof item.details === 'string' ? item.details : JSON.stringify(item.details || {})),
-              deptColor
+              deptColor,
+              deptBg
             };
           });
 
@@ -109,31 +114,86 @@ export default function LiveFeed({ mode = 'widget', apiBase }: LiveFeedProps) {
   });
 
   return (
-    <div className={`card flex flex-col h-full m-0 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl overflow-hidden ${mode === 'fullscreen' ? 'max-w-4xl mx-auto w-full' : 'w-full'}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
-        <div className="flex items-center gap-2">
-          <Terminal size={18} className="text-cyan-400" />
-          <div>
-            <h2 className="text-sm font-bold text-slate-100 flex items-center gap-2 m-0 leading-tight">
-              Company Activity Feed
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            </h2>
-            <p className="text-[11px] text-slate-400 m-0">Live event stream direct from database (activity_logs table)</p>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      maxHeight: '100%',
+      backgroundColor: '#0f172a',
+      border: '1px solid #334155',
+      borderRadius: '1rem',
+      overflow: 'hidden',
+      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+      width: mode === 'fullscreen' ? '100%' : '100%',
+      maxWidth: mode === 'fullscreen' ? '64rem' : '100%',
+      margin: mode === 'fullscreen' ? '0 auto' : '0'
+    }}>
+      {/* Header bar */}
+      <div style={{
+        padding: '0.75rem 1rem',
+        background: 'linear-gradient(to right, #020617, #0f172a, #1e1b4b)',
+        borderBottom: '1px solid #334155',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '0.5rem',
+        flexShrink: 0
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', minWidth: 0 }}>
+          <div style={{
+            width: '1.75rem',
+            height: '1.75rem',
+            borderRadius: '9999px',
+            backgroundColor: 'rgba(6, 182, 212, 0.2)',
+            border: '1px solid rgba(6, 182, 212, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.875rem',
+            flexShrink: 0
+          }}>
+            <Radio size={14} color="#38bdf8" />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+              <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '9999px', backgroundColor: '#34d399' }} />
+              <h2 style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#f8fafc', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                Live Activity Feed
+              </h2>
+            </div>
+            <p style={{ fontSize: '0.6875rem', color: '#94a3b8', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              Real-time Autonomous Events
+            </p>
           </div>
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.25rem',
+          backgroundColor: '#020617',
+          padding: '0.25rem',
+          borderRadius: '0.5rem',
+          border: '1px solid #1e293b',
+          flexShrink: 0
+        }}>
           {(['ALL', 'TECH', 'PROD', 'GROWTH'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setFilter(tab)}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono transition ${
-                filter === tab
-                  ? 'bg-cyan-600 text-white'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
+              style={{
+                padding: '0.2rem 0.5rem',
+                borderRadius: '0.375rem',
+                fontSize: '0.6875rem',
+                fontWeight: 'bold',
+                fontFamily: 'monospace',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                backgroundColor: filter === tab ? '#0284c7' : 'transparent',
+                color: filter === tab ? '#ffffff' : '#94a3b8'
+              }}
             >
               {tab}
             </button>
@@ -141,33 +201,126 @@ export default function LiveFeed({ mode = 'widget', apiBase }: LiveFeedProps) {
         </div>
       </div>
 
-      {/* Classic Log View Table / Stream */}
-      <div className="flex-1 overflow-y-auto bg-slate-950 p-3 rounded-lg border border-slate-800/80 font-mono text-xs space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
+      {/* Message Chat Style Feed Stream with visible scrollbar and legible font size */}
+      <div style={{
+        flex: 1,
+        minHeight: 0,
+        overflowY: 'auto',
+        padding: '0.875rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem',
+        backgroundColor: 'rgba(2, 6, 23, 0.75)',
+        fontFamily: 'Inter, system-ui, sans-serif'
+      }}>
         {filteredEvents.map((e, idx) => (
           <div
             key={e.id || idx}
-            className="flex flex-col sm:flex-row sm:items-baseline gap-1.5 sm:gap-2 pb-1.5 border-b border-slate-900/80 text-[11px] leading-relaxed hover:bg-slate-900/50 px-1 rounded transition"
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.625rem'
+            }}
           >
-            <span className="text-slate-500 font-mono flex-shrink-0">
-              [{e.time}]
-            </span>
-            <span
-              className="font-bold flex-shrink-0"
-              style={{ color: e.deptColor || '#38bdf8' }}
+            {/* Avatar initial badge */}
+            <div 
+              style={{ 
+                width: '1.75rem',
+                height: '1.75rem',
+                borderRadius: '9999px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.75rem',
+                fontWeight: 800,
+                border: `1px solid ${e.deptColor || '#38bdf8'}`,
+                backgroundColor: e.deptBg || 'rgba(56, 189, 248, 0.2)',
+                color: e.deptColor || '#38bdf8',
+                flexShrink: 0,
+                marginTop: '0.125rem'
+              }}
             >
-              {e.agent}
-            </span>
-            <span className="text-slate-100 font-semibold flex-shrink-0 sm:border-l sm:border-slate-800 sm:pl-2">
-              {e.action}:
-            </span>
-            <span className="text-slate-400 flex-1 break-words">
-              {e.details}
-            </span>
+              {e.agentNameOnly.charAt(0).toUpperCase()}
+            </div>
+
+            {/* Message bubble */}
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', maxWidth: '92%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+                <span 
+                  style={{ 
+                    fontWeight: 700,
+                    fontSize: '0.8125rem',
+                    color: e.deptColor || '#38bdf8'
+                  }}
+                >
+                  {e.agentNameOnly}
+                </span>
+                {e.role && (
+                  <span style={{
+                    fontSize: '0.6875rem',
+                    fontFamily: 'monospace',
+                    padding: '0.0625rem 0.375rem',
+                    borderRadius: '0.25rem',
+                    backgroundColor: '#1e293b',
+                    color: '#cbd5e1',
+                    border: '1px solid #334155'
+                  }}>
+                    {e.role}
+                  </span>
+                )}
+                <span style={{
+                  fontSize: '0.6875rem',
+                  fontFamily: 'monospace',
+                  fontWeight: 600,
+                  color: '#22d3ee',
+                  backgroundColor: 'rgba(8, 145, 178, 0.25)',
+                  padding: '0.0625rem 0.375rem',
+                  borderRadius: '0.25rem',
+                  border: '1px solid rgba(6, 182, 212, 0.3)'
+                }}>
+                  {e.action}
+                </span>
+                <span style={{ fontSize: '0.6875rem', color: '#64748b', fontFamily: 'monospace', marginLeft: 'auto' }}>
+                  {e.time}
+                </span>
+              </div>
+
+              {/* Speech bubble with comfortable font size */}
+              <div style={{
+                backgroundColor: '#1e293b',
+                border: '1px solid #334155',
+                borderRadius: '0.875rem',
+                borderTopLeftRadius: '0.125rem',
+                padding: '0.625rem 0.875rem',
+                fontSize: '0.8125rem',
+                color: '#e2e8f0',
+                lineHeight: 1.55,
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                wordBreak: 'break-word',
+                whiteSpace: 'pre-wrap',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}>
+                {e.details}
+              </div>
+            </div>
           </div>
         ))}
+
         {filteredEvents.length === 0 && (
-          <div className="text-slate-500 text-center py-8 text-xs font-sans">
-            Belum ada aktivitas yang tercatat. Inisiasi project baru atau berikan arahan di Company Chat.
+          <div style={{
+            height: '100%',
+            minHeight: '160px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            padding: '1rem',
+            color: '#64748b'
+          }}>
+            <Terminal size={24} style={{ color: '#475569', marginBottom: '0.5rem' }} />
+            <p style={{ fontSize: '0.8125rem', color: '#94a3b8', margin: 0 }}>Belum ada aktivitas yang tercatat.</p>
           </div>
         )}
         <div ref={feedEndRef} />

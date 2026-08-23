@@ -9,6 +9,15 @@ import { logActivity } from './activityService';
 const execPromise = util.promisify(exec);
 const PROJECTS_BASE_DIR = path.resolve('/mnt/d/explore/virtual-company/projects');
 
+function extractCodeBlock(content: string): string {
+  if (!content) return '';
+  const match = content.match(/```(?:html|javascript|js|json)?\s*([\s\S]*?)```/i);
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+  return content.trim();
+}
+
 export async function runProjectPipeline(projectId: string) {
   try {
     const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [projectId]);
@@ -24,9 +33,9 @@ export async function runProjectPipeline(projectId: string) {
     }
 
     // ==========================================
-    // PHASE 1: DISCOVERY & SPECIFICATION
+    // PHASE 1: DISCOVERY & SPECIFICATION (PM, UX, ARCH)
     // ==========================================
-    await updateProjectStage(projectId, 'SPECIFYING', 'Discovery & Spec (PRD & UX)', 15);
+    await updateProjectStage(projectId, 'SPECIFYING', 'Discovery & Product Requirements (PRD)', 10);
     await setAgentStatus('EMP-PM', 'WORKING');
     await logActivity('WRITE_SPEC', `PM Agent (Sarah) sedang menyusun 01_PRD.md untuk proyek: ${project.title}`, 'EMP-PM', projectId);
 
@@ -48,19 +57,45 @@ PRD harus memuat:
     await saveProjectDocument(projectId, 'PRD', '01_PRD.md', prdContent, 'EMP-PM', path.join('docs', '01_PRD.md'));
     await setAgentStatus('EMP-PM', 'IDLE');
 
+    // UI/UX Design System & Layout Blueprint
+    await updateProjectStage(projectId, 'SPECIFYING', 'UI/UX Design System & Layout Blueprint', 20);
+    await setAgentStatus('EMP-UX', 'WORKING');
+    await logActivity('WRITE_SPEC', `Lead UI/UX Architect (Kaelen) merancang 02_UI_UX_Design_System.md & visual tokens`, 'EMP-UX', projectId);
+
+    const uxPrompt = `Berdasarkan PRD proyek "${project.title}" (${project.description}), rancang Design System UI/UX lengkap dalam format Markdown (.md).
+Desain harus modern, berstandar tinggi (mengikuti estetika modern Linear / Vercel / Stripe Dashboard dark mode):
+
+Dokumen harus memuat:
+# UI/UX Design System & Layout Blueprint: ${project.title}
+## 1. Design Tokens & Color Palette (Deep Slate Dark Theme, Neon Glassmorphism, Accent Gradients)
+## 2. Typography & Iconography (Font: Inter / Plus Jakarta Sans, Icons: Lucide/SVG)
+## 3. Component Hierarchy:
+   - Modern Top Navigation Bar (Branding, Live status pulse badge, Quick Actions)
+   - Metric & KPI Stats Summary Cards (Total, Active, Completed, Efficiency score)
+   - Interactive Input & Creation Forms with instant validation
+   - Dynamic Data Visualization (Interactive Cards / Tables, Status Badges, Filter & Search)
+   - Real-time Toast Notifications & Empty State Visuals
+## 4. User Flow & Micro-interactions (Hover animations, transitions, responsive mobile & desktop breakpoints)`;
+
+    const uxRes = await callAgentLLM('EMP-UX', 'Kamu adalah Lead UI/UX Architect (Kaelen) yang mengutamakan estetika modern, micro-interactions, dan visual polish tinggi.', uxPrompt, projectId);
+    const uxContent = uxRes.content;
+    fs.writeFileSync(path.join(projectDir, 'docs', '02_UI_UX_Design_System.md'), uxContent, 'utf8');
+    await saveProjectDocument(projectId, 'UI_UX_SPEC', '02_UI_UX_Design_System.md', uxContent, 'EMP-UX', path.join('docs', '02_UI_UX_Design_System.md'));
+    await setAgentStatus('EMP-UX', 'IDLE');
+
     // Architecture & API Spec
-    await updateProjectStage(projectId, 'SPECIFYING', 'Architecture & API Contracts', 30);
+    await updateProjectStage(projectId, 'SPECIFYING', 'Architecture & API Contracts', 35);
     await setAgentStatus('EMP-ARCH', 'WORKING');
     await logActivity('WRITE_SPEC', `Software Architect (Viktor) merancang 03_Architecture_API.md`, 'EMP-ARCH', projectId);
 
-    const archPrompt = `Berdasarkan PRD berikut, rancang arsitektur teknis sistem dan kontrak REST API dalam format Markdown (.md):
+    const archPrompt = `Berdasarkan PRD dan UI/UX Design System, rancang arsitektur teknis sistem dan kontrak REST API dalam format Markdown (.md):
 PRD Ringkas: ${project.title} - ${project.description}
 
 Dokumen harus memuat:
 # Architecture & Technical Design: ${project.title}
-## 1. System Architecture & Tech Stack (Node.js/Express + React UI)
+## 1. System Architecture & Tech Stack (Node.js/Express + Modern Responsive Frontend UI)
 ## 2. Database Model & Schema Structure
-## 3. REST API Endpoint Specifications (Method, Route, Request Body, Response JSON)
+## 3. REST API Endpoint Specifications (GET/POST/PUT/DELETE /api/items, GET /api/stats, GET /health)
 ## 4. Security, Error Handling & Data Flow`;
 
     const archRes = await callAgentLLM('EMP-ARCH', 'Kamu adalah Principal Software Architect (Viktor Cruz).', archPrompt, projectId);

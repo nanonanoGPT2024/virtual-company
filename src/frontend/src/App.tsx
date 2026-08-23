@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { 
   Building, 
   GitBranch, 
-  MessageSquare, 
   Lightbulb, 
   Activity, 
   DollarSign, 
@@ -11,7 +10,10 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Sparkles, 
-  Send 
+  Send,
+  MessageSquare,
+  X,
+  Bot
 } from 'lucide-react';
 import VirtualOffice from './components/VirtualOffice';
 import ProjectPipeline from './components/ProjectPipeline';
@@ -46,7 +48,7 @@ interface Idea {
   created_at?: string;
 }
 
-type NavTab = 'office' | 'pipeline' | 'chat' | 'ideas' | 'activity' | 'finance';
+type NavTab = 'office' | 'pipeline' | 'ideas' | 'activity' | 'finance';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('office');
@@ -58,12 +60,12 @@ export default function App() {
   const [isTheaterMode, setIsTheaterMode] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d');
   
-  // Chat State
+  // Floating Chat State
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState<string>('');
   const [chatSending, setChatSending] = useState<boolean>(false);
-  const [activeChatAgent, setActiveChatAgent] = useState<Agent | null>(null);
-  const [chatRoomType, setChatRoomType] = useState<'WAR_ROOM' | 'DIRECT'>('WAR_ROOM');
+  const [selectedTargetId, setSelectedTargetId] = useState<string>('EMP-CEO'); // 'WAR_ROOM' or 'EMP-XXX'
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
 
   // Idea scan loading
@@ -84,23 +86,20 @@ export default function App() {
 
   const getApiBase = () => {
     const urlParams = new URLSearchParams(window.location.search);
-    let paramApi = urlParams.get('api');
+    const paramApi = urlParams.get('api');
     if (paramApi) {
-      paramApi = paramApi.replace(/\/$/, '');
-      if (!paramApi.endsWith('/api')) paramApi += '/api';
-      localStorage.setItem('API_URL', paramApi);
-      return paramApi;
+      const clean = paramApi.replace(/\/$/, '');
+      const full = clean.endsWith('/api') ? clean : `${clean}/api`;
+      localStorage.setItem('API_URL', full);
+      return full;
     }
-    let storedApi = localStorage.getItem('API_URL');
+    const storedApi = localStorage.getItem('API_URL');
     if (storedApi) {
-      storedApi = storedApi.replace(/\/$/, '');
-      if (!storedApi.endsWith('/api')) storedApi += '/api';
-      return storedApi;
+      const clean = storedApi.replace(/\/$/, '');
+      return clean.endsWith('/api') ? clean : `${clean}/api`;
     }
-    if (window.location.port === '5173' || window.location.port === '5174') {
-      return `http://${window.location.hostname}:4000/api`;
-    }
-    return `${window.location.origin}/api`;
+    const host = window.location.hostname || 'localhost';
+    return `http://${host}:4000/api`;
   };
   const API_BASE = getApiBase();
 
@@ -108,11 +107,10 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [companyRes, agentsRes, ideasRes, chatRes, projectsRes] = await Promise.all([
+      const [companyRes, agentsRes, ideasRes, projectsRes] = await Promise.all([
         fetch(`${API_BASE}/company`).then(r => r.ok ? r.json() : null).catch(() => null),
         fetch(`${API_BASE}/agents`).then(r => r.ok ? r.json() : []).catch(() => []),
         fetch(`${API_BASE}/ideas`).then(r => r.ok ? r.json() : []).catch(() => []),
-        fetch(`${API_BASE}/chat`).then(r => r.ok ? r.json() : []).catch(() => []),
         fetch(`${API_BASE}/projects`).then(r => r.ok ? r.json() : []).catch(() => [])
       ]);
 
@@ -121,9 +119,6 @@ export default function App() {
 
       const loadedIdeas = Array.isArray(ideasRes) ? ideasRes : [];
       setIdeas(loadedIdeas);
-
-      const loadedChats = Array.isArray(chatRes) ? chatRes : [];
-      setChatMessages(loadedChats);
 
       const loadedProjects = Array.isArray(projectsRes) ? projectsRes : [];
       setProjects(loadedProjects);
@@ -134,13 +129,13 @@ export default function App() {
     }
   };
 
-  const fetchChat = async (agentId?: string) => {
+  const fetchChat = async (targetId: string) => {
     try {
       let url = `${API_BASE}/chat`;
-      if (agentId) {
-        url += `?room_type=DIRECT&agent_id=${agentId}`;
-      } else {
+      if (targetId === 'WAR_ROOM') {
         url += `?room_type=WAR_ROOM`;
+      } else {
+        url += `?room_type=DIRECT&agent_id=${targetId}`;
       }
       const res = await fetch(url);
       if (res.ok) {
@@ -152,11 +147,23 @@ export default function App() {
     }
   };
 
+  const handleTargetChange = (newTargetId: string) => {
+    setSelectedTargetId(newTargetId);
+    fetchChat(newTargetId);
+  };
+
+  const handleOpenChatWithAgent = (ag: any) => {
+    setSelectedTargetId(ag.id);
+    setIsChatOpen(true);
+    fetchChat(ag.id);
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || chatSending) return;
 
     const messageText = chatInput;
+    const isWarRoom = selectedTargetId === 'WAR_ROOM';
     setChatInput('');
     setChatSending(true);
 
@@ -166,7 +173,7 @@ export default function App() {
       sender_name: 'Nano (Owner)',
       sender_role: 'Owner',
       message: messageText,
-      room_type: chatRoomType,
+      room_type: isWarRoom ? 'WAR_ROOM' : 'DIRECT',
       created_at: new Date().toISOString()
     };
     setChatMessages(prev => [...prev, userMsg]);
@@ -177,8 +184,8 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: messageText,
-          room_type: chatRoomType,
-          recipient_id: chatRoomType === 'DIRECT' && activeChatAgent ? activeChatAgent.id : 'EMP-CEO'
+          room_type: isWarRoom ? 'WAR_ROOM' : 'DIRECT',
+          recipient_id: isWarRoom ? 'EMP-CEO' : selectedTargetId
         })
       });
       if (res.ok) {
@@ -232,15 +239,20 @@ export default function App() {
 
   useEffect(() => {
     fetchData();
+    fetchChat(selectedTargetId);
   }, []);
 
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages, chatSending]);
+    if (isChatOpen) {
+      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, chatSending, isChatOpen]);
+
+  const currentChatAgent = agents.find(a => a.id === selectedTargetId);
 
   return (
     <div className="dashboard-container">
-      {/* Sidebar Navigation - PRD v2.0 Official */}
+      {/* Sidebar Navigation - PRD v2.1 (5 Official Menus) */}
       {!isTheaterMode && (
         <div className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
           <div className="logo-section">
@@ -251,7 +263,7 @@ export default function App() {
                 </div>
                 <div className="flex flex-col">
                   <span className="font-bold text-white text-sm leading-tight">VirtuLabs OS</span>
-                  <span className="text-[10px] text-cyan-400 font-mono">v2.0 Redesigned</span>
+                  <span className="text-[10px] text-cyan-400 font-mono">v2.1 Redesigned</span>
                 </div>
               </div>
             )}
@@ -284,19 +296,7 @@ export default function App() {
               {!isSidebarCollapsed && <span className="nav-text">Project Pipeline Hub</span>}
             </button>
 
-            {/* 3. Company Chat */}
-            <button
-              onClick={() => {
-                setActiveTab('chat');
-                fetchChat(activeChatAgent?.id);
-              }}
-              className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`}
-            >
-              <MessageSquare size={18} />
-              {!isSidebarCollapsed && <span className="nav-text">Company Chat</span>}
-            </button>
-
-            {/* 4. Idea Radar */}
+            {/* 3. Idea Radar */}
             <button
               onClick={() => setActiveTab('ideas')}
               className={`nav-item ${activeTab === 'ideas' ? 'active' : ''}`}
@@ -305,7 +305,7 @@ export default function App() {
               {!isSidebarCollapsed && <span className="nav-text">Idea Radar</span>}
             </button>
 
-            {/* 5. Live Activity Stream */}
+            {/* 4. Live Activity Stream */}
             <button
               onClick={() => setActiveTab('activity')}
               className={`nav-item ${activeTab === 'activity' ? 'active' : ''}`}
@@ -314,7 +314,7 @@ export default function App() {
               {!isSidebarCollapsed && <span className="nav-text">Live Activity Stream</span>}
             </button>
 
-            {/* 6. Financial Analytics */}
+            {/* 5. Financial Analytics */}
             <button
               onClick={() => setActiveTab('finance')}
               className={`nav-item ${activeTab === 'finance' ? 'active' : ''}`}
@@ -326,7 +326,7 @@ export default function App() {
 
           <div className="sidebar-footer" style={{ marginTop: 'auto', fontSize: '0.75rem', color: '#64748b', textAlign: 'center', padding: '1rem 0.5rem' }}>
             {!isSidebarCollapsed && <>Founder HQ &bull; VirtuLabs AI</>}
-            {isSidebarCollapsed && <>v2.0</>}
+            {isSidebarCollapsed && <>v2.1</>}
           </div>
         </div>
       )}
@@ -344,7 +344,7 @@ export default function App() {
               <div>
                 <h1>VirtuLabs AI Virtual Company OS</h1>
                 <p style={{ margin: '0.25rem 0 0 0', color: '#94a3b8', fontSize: '0.875rem' }}>
-                  Autonomous Software & Product Studio &bull; PRD v2.0
+                  Autonomous Software & Product Studio &bull; PRD v2.1
                 </p>
               </div>
             </div>
@@ -378,24 +378,20 @@ export default function App() {
               <div className="flex flex-col gap-4 h-full">
                 <div style={{ 
                   display: 'grid', 
-                  gridTemplateColumns: '1fr 310px', 
+                  gridTemplateColumns: '1fr 340px', 
                   gap: '1rem', 
-                  alignItems: 'stretch'
+                  alignItems: 'stretch',
+                  height: '540px'
                 }}>
-                  <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', height: '520px' }}>
+                  <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                     <VirtualOffice 
                       agents={agents} 
                       viewMode={viewMode} 
                       onToggleViewMode={setViewMode} 
-                      onStartChatWithAgent={(ag) => {
-                        setActiveChatAgent(ag as any);
-                        setChatRoomType('DIRECT');
-                        setActiveTab('chat');
-                        fetchChat(ag.id);
-                      }}
+                      onStartChatWithAgent={handleOpenChatWithAgent}
                     />
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', height: '520px', width: '310px', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '340px', flexShrink: 0, overflow: 'hidden' }}>
                     <LiveFeed />
                   </div>
                 </div>
@@ -409,269 +405,109 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB 3: COMPANY CHAT */}
-            {activeTab === 'chat' && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl" style={{ height: 'calc(100vh - 180px)' }}>
-                {/* Agent & Room Directory (Sidebar Chat) */}
-                <div className="md:col-span-1 border-r border-slate-800 p-3 flex flex-col gap-1.5 overflow-y-auto bg-slate-950/60 scrollbar-thin scrollbar-thumb-slate-800">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1 flex items-center gap-1.5">
-                    Channels
-                  </span>
-                  
-                  <button
-                    onClick={() => {
-                      setChatRoomType('WAR_ROOM');
-                      setActiveChatAgent(null);
-                      fetchChat();
-                    }}
-                    className={`flex items-center gap-2.5 p-2.5 rounded-xl text-left transition ${
-                      chatRoomType === 'WAR_ROOM' 
-                        ? 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 shadow-md' 
-                        : 'hover:bg-slate-800/60 text-slate-300 border border-transparent'
-                    }`}
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-sm shadow-inner">
-                      ⚡
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold truncate">Executive War Room</div>
-                      <div className="text-[10px] text-slate-400 truncate">C-Level Strategy Forum</div>
-                    </div>
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                  </button>
-
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1 mt-2">
-                    1-on-1 Direct Agents ({agents.length})
-                  </span>
-                  
-                  {agents.map((ag) => {
-                    const isSelected = chatRoomType === 'DIRECT' && activeChatAgent?.id === ag.id;
-                    return (
-                      <button
-                        key={ag.id}
-                        onClick={() => {
-                          setChatRoomType('DIRECT');
-                          setActiveChatAgent(ag);
-                          fetchChat(ag.id);
-                        }}
-                        className={`flex items-center gap-2.5 p-2 rounded-xl text-left transition ${
-                          isSelected 
-                            ? 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 shadow-md' 
-                            : 'hover:bg-slate-800/60 text-slate-300 border border-transparent'
-                        }`}
-                      >
-                        <div className="relative flex-shrink-0">
-                          <img 
-                            src={ag.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${ag.id}`} 
-                            alt={ag.name}
-                            className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 object-cover" 
-                          />
-                          <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border border-slate-900" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-semibold truncate leading-tight">{ag.name}</div>
-                          <div className="text-[10px] text-slate-400 truncate leading-tight mt-0.5">{ag.title}</div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Chat Panel & Conversation Window */}
-                <div className="md:col-span-3 flex flex-col h-full bg-slate-900/40">
-                  {/* Header Bar */}
-                  <div className="p-3.5 border-b border-slate-800 flex justify-between items-center bg-slate-950/80 backdrop-blur-md">
-                    <div className="flex items-center gap-3">
-                      {chatRoomType === 'DIRECT' && activeChatAgent ? (
-                        <img 
-                          src={activeChatAgent.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${activeChatAgent.id}`} 
-                          alt={activeChatAgent.name}
-                          className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700" 
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-sm">
-                          ⚡
-                        </div>
-                      )}
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-white leading-none">
-                            {chatRoomType === 'WAR_ROOM' ? 'Executive War Room' : activeChatAgent?.name}
-                          </span>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            Active
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-1 leading-none">
-                          {chatRoomType === 'WAR_ROOM' ? 'Forum strategi multi-agen C-Level' : activeChatAgent?.title}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[11px] text-slate-500 font-mono bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
-                      {chatRoomType === 'WAR_ROOM' ? 'Room: WAR_ROOM' : `ID: ${activeChatAgent?.id}`}
-                    </span>
-                  </div>
-
-                  {/* Messages Bubble Timeline */}
-                  <div className="flex-1 p-4 overflow-y-auto space-y-4 font-sans scrollbar-thin scrollbar-thumb-slate-800">
-                    {chatMessages.length === 0 && (
-                      <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
-                        <MessageSquare size={36} className="text-slate-600 mb-2" />
-                        <p className="text-xs font-semibold text-slate-400">Belum ada percakapan dalam sesi ini.</p>
-                        <p className="text-[11px] text-slate-500">Kirim instruksi, pertanyaan, atau ide bisnis di bawah untuk memulai!</p>
-                      </div>
-                    )}
-
-                    {chatMessages.map((m, idx) => {
-                      const isOwner = m.sender_id === 'EMP-OWNER' || m.sender_id === 'OWNER' || m.sender_type === 'HUMAN';
-                      return (
-                        <div key={m.id || idx} className={`flex gap-2.5 ${isOwner ? 'justify-end' : 'justify-start'}`}>
-                          {/* AI Avatar */}
-                          {!isOwner && (
-                            <img 
-                              src={m.sender_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${m.sender_id || 'AI'}`} 
-                              alt="avatar"
-                              className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 mt-1 flex-shrink-0 shadow-sm" 
-                            />
-                          )}
-
-                          {/* Bubble Container */}
-                          <div className={`flex flex-col ${isOwner ? 'items-end' : 'items-start'} max-w-[80%]`}>
-                            {/* Sender Info Header */}
-                            <div className="flex items-center gap-1.5 mb-1 px-1">
-                              <span className={`text-[11px] font-bold ${isOwner ? 'text-cyan-300' : 'text-slate-300'}`}>
-                                {m.sender_name || (isOwner ? 'Nano (Owner)' : 'Agent')}
-                              </span>
-                              {!isOwner && m.sender_role && (
-                                <span className="text-[9px] font-mono uppercase bg-slate-800 text-cyan-400 px-1.5 py-0.2 rounded border border-slate-700">
-                                  {m.sender_role}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Speech Bubble Box */}
-                            <div className={`p-3 rounded-2xl text-xs leading-relaxed break-words shadow-md ${
-                              isOwner 
-                                ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white rounded-tr-sm shadow-cyan-950/40' 
-                                : 'bg-slate-800/95 text-slate-100 border border-slate-700/80 rounded-tl-sm shadow-slate-950/50'
-                            }`}>
-                              <div className="whitespace-pre-wrap">{m.message}</div>
-                              <div className={`text-[9px] mt-1 font-mono text-right ${isOwner ? 'text-cyan-200' : 'text-slate-400'}`}>
-                                {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {chatSending && (
-                      <div className="flex items-center gap-2 text-xs text-cyan-400 italic bg-slate-800/60 border border-slate-700/60 p-2.5 rounded-xl w-fit">
-                        <Sparkles size={14} className="animate-spin text-cyan-400" />
-                        AI Agent sedang memikirkan dan mengetik balasan...
-                      </div>
-                    )}
-                    <div ref={chatBottomRef} />
-                  </div>
-
-                  {/* Input Form */}
-                  <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-800 bg-slate-950/90 flex gap-2 items-center">
-                    <input 
-                      type="text"
-                      value={chatInput}
-                      onChange={e => setChatInput(e.target.value)}
-                      placeholder={chatRoomType === 'WAR_ROOM' ? "Kirim pesan atau arahan strategis ke War Room C-Level..." : `Kirim pesan ke ${activeChatAgent?.name || 'Agent'}...`}
-                      className="flex-1 bg-slate-900 border border-slate-700/90 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
-                    />
-                    <button 
-                      type="submit"
-                      disabled={!chatInput.trim() || chatSending}
-                      className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg flex-shrink-0"
-                    >
-                      <Send size={14} /> Send
-                    </button>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* TAB 4: IDEA RADAR & SCAN */}
+            {/* TAB 3: IDEA RADAR */}
             {activeTab === 'ideas' && (
-              <div className="flex flex-col gap-4">
-                <div className="flex justify-between items-center bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-                  <div>
-                    <h2 className="text-base font-bold text-white flex items-center gap-2">
-                      <Lightbulb className="text-amber-400" size={20} />
-                      Autonomous Idea Radar & Market Scan
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Peluang software & SaaS micro-tools yang diidentifikasi oleh Market Researcher Agent (Dr. Aris).
-                    </p>
+              <div className="flex flex-col gap-4 max-w-4xl mx-auto w-full">
+                {/* Header Banner */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                      <Lightbulb size={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-white m-0">
+                        Market Research & Idea Feed
+                      </h2>
+                      <p className="text-xs text-slate-400 m-0">
+                        Pesan analisa & peluang SaaS dari Dr. Aris (Researcher)
+                      </p>
+                    </div>
                   </div>
                   <button
                     onClick={handleScanIdea}
                     disabled={isScanning}
-                    className="bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg disabled:opacity-60"
+                    className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow disabled:opacity-60 cursor-pointer flex-shrink-0"
                   >
                     <Sparkles size={14} className={isScanning ? 'animate-spin' : ''} />
-                    {isScanning ? 'Scanning Market...' : 'Scan New Market Opportunity'}
+                    {isScanning ? 'Scanning...' : 'Scan New Opportunity'}
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Ideas Message Feed */}
+                <div className="space-y-3">
                   {ideas.map((idea) => (
-                    <div key={idea.id} className="bg-slate-900/90 border border-slate-800 hover:border-cyan-500/40 p-4 rounded-2xl flex flex-col justify-between transition shadow-lg">
-                      <div>
-                        <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-bold text-white text-sm">{idea.title}</h3>
-                          <span className="text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
-                            ★ {idea.market_potential_score || 85}/100
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-400 mb-3 line-clamp-2">{idea.problem_statement}</p>
-                        
-                        <div className="space-y-1.5 text-[11px] bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 mb-3">
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Target User:</span>
-                            <span className="text-slate-300 font-semibold">{idea.target_audience || 'B2B/Freelance'}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Proj. Revenue:</span>
-                            <span className="text-emerald-400 font-semibold font-mono">${(idea.estimated_revenue_usd || 5000).toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Build Time:</span>
-                            <span className="text-cyan-400 font-semibold font-mono">{idea.estimated_dev_time_mins || 5} mins</span>
-                          </div>
-                        </div>
+                    <div 
+                      key={idea.id} 
+                      className="flex items-start gap-2.5 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-md transition hover:border-slate-700"
+                    >
+                      {/* Compact Initial Badge (No <img>, pure CSS) */}
+                      <div className="w-8 h-8 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 font-bold text-xs flex-shrink-0 mt-0.5">
+                        🔬
                       </div>
 
-                      <button
-                        onClick={() => handleBuildIdea(idea)}
-                        className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5"
-                      >
-                        <Sparkles size={14} /> Approve & Build Project
-                      </button>
+                      {/* Message Body Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-amber-400">Dr. Aris</span>
+                            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                              Market Intelligence
+                            </span>
+                            <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-500/30">
+                              ★ {idea.market_potential_score || 85}/100 Score
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            Opportunity Spec
+                          </span>
+                        </div>
+
+                        {/* Speech Bubble */}
+                        <div className="bg-slate-950/80 border border-slate-800/90 rounded-xl rounded-tl-sm p-3 mb-2.5">
+                          <h3 className="text-xs font-bold text-white mb-1 flex items-center gap-1.5">
+                            <span className="text-amber-400">💡</span> {idea.title}
+                          </h3>
+                          <p className="text-xs text-slate-300 leading-relaxed m-0 whitespace-pre-wrap">
+                            {idea.problem_statement}
+                          </p>
+                        </div>
+
+                        {/* Meta Tags & Action Button */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                          <div className="flex items-center gap-3 text-[10px] font-mono text-slate-400">
+                            <div>Target: <span className="text-slate-200 font-semibold">{idea.target_audience || 'B2B'}</span></div>
+                            <div>Est: <span className="text-emerald-400 font-semibold">${(idea.estimated_revenue_usd || 5000).toLocaleString()}</span></div>
+                            <div>Dev: <span className="text-cyan-400 font-semibold">{idea.estimated_dev_time_mins || 5}m</span></div>
+                          </div>
+
+                          <button
+                            onClick={() => handleBuildIdea(idea)}
+                            className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 cursor-pointer ml-auto"
+                          >
+                            <Sparkles size={12} /> Approve & Build
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
+
                   {ideas.length === 0 && (
-                    <div className="col-span-full p-8 text-center bg-slate-900 border border-slate-800 rounded-2xl text-slate-500 text-sm">
-                      Belum ada ide yang terscan. Klik tombol 'Scan New Market Opportunity' di atas.
+                    <div className="p-8 text-center bg-slate-900/60 border border-slate-800 rounded-2xl text-slate-500 text-xs">
+                      Belum ada ide yang terscan. Klik tombol 'Scan New Opportunity' di atas.
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* TAB 5: LIVE ACTIVITY STREAM */}
+            {/* TAB 4: LIVE ACTIVITY STREAM */}
             {activeTab === 'activity' && (
               <div className="h-[calc(100vh-180px)]">
                 <LiveFeed mode="fullscreen" />
               </div>
             )}
 
-            {/* TAB 6: FINANCIAL ANALYTICS */}
+            {/* TAB 5: FINANCIAL ANALYTICS */}
             {activeTab === 'finance' && (
               <div className="flex flex-col gap-4">
                 <FinancialChart agents={agents} />
@@ -679,6 +515,151 @@ export default function App() {
             )}
           </>
         )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* FLOATING CHAT BUBBLE & DRAWER (PRD v2.1) - GLASSMORPHISM & NEON GLOW     */}
+      {/* ========================================================================= */}
+      <div className="floating-chat-container">
+        {/* Chat Drawer Box */}
+        {isChatOpen && (
+          <div className="floating-chat-drawer">
+            {/* Header with Agent/Channel Selector */}
+            <div style={{ padding: '0.875rem', background: 'linear-gradient(to right, #020617, #0f172a, #1e1b4b)', borderBottom: '1px solid rgba(6,182,212,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flex: 1, minWidth: 0 }}>
+                <div style={{ width: '2rem', height: '2rem', borderRadius: '9999px', background: 'rgba(6,182,212,0.2)', border: '1px solid rgba(6,182,212,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {selectedTargetId === 'WAR_ROOM' ? (
+                    <span style={{ color: '#facc15', fontWeight: 'bold', fontSize: '0.875rem' }}>⚡</span>
+                  ) : (
+                    <Bot size={18} style={{ color: '#22d3ee' }} />
+                  )}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '9999px', backgroundColor: '#34d399' }} />
+                    <select
+                      value={selectedTargetId}
+                      onChange={(e) => handleTargetChange(e.target.value)}
+                      style={{ background: '#0f172a', border: '1px solid #334155', color: '#ffffff', fontSize: '0.75rem', fontWeight: 'bold', borderRadius: '0.5rem', padding: '0.25rem 0.5rem', cursor: 'pointer', maxWidth: '200px', outline: 'none' }}
+                    >
+                      <option value="EMP-CEO">👑 Chief Aura (CEO)</option>
+                      <option value="WAR_ROOM">⚡ Executive War Room</option>
+                      <option disabled>────────── 1-on-1 Agents ──────────</option>
+                      {agents.map((ag) => (
+                        <option key={ag.id} value={ag.id}>
+                          {ag.name} ({ag.title})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p style={{ fontSize: '10px', color: '#94a3b8', margin: '0.25rem 0 0 0', paddingLeft: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {selectedTargetId === 'WAR_ROOM' ? 'Forum Strategi C-Level Virtual' : (currentChatAgent?.title || 'Agent Direct Chat')}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsChatOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '0.375rem', borderRadius: '0.375rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Tutup Chat"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Chat Messages Stream */}
+            <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.875rem', background: 'rgba(2, 6, 23, 0.6)' }}>
+              {chatMessages.length === 0 && (
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                  <MessageSquare size={36} style={{ color: '#475569', marginBottom: '0.75rem' }} />
+                  <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#94a3b8', margin: 0 }}>Belum ada percakapan.</p>
+                  <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0.375rem 0 0 0' }}>Ketik pesan atau arahan di bawah untuk mulai berinteraksi.</p>
+                </div>
+              )}
+
+              {chatMessages.map((m, idx) => {
+                const isOwner = m.sender_id === 'EMP-OWNER' || m.sender_id === 'OWNER' || m.sender_type === 'HUMAN';
+                return (
+                  <div key={m.id || idx} style={{ display: 'flex', gap: '0.625rem', justifyContent: isOwner ? 'flex-end' : 'flex-start' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: isOwner ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.25rem', padding: '0 0.25rem' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: isOwner ? '#67e8f9' : '#cbd5e1' }}>
+                          {m.sender_name || (isOwner ? 'Nano (Owner)' : 'Agent')}
+                        </span>
+                        {!isOwner && m.sender_role && (
+                          <span style={{ fontSize: '0.7rem', fontFamily: 'monospace', textTransform: 'uppercase', background: '#1e293b', color: '#22d3ee', padding: '0.125rem 0.375rem', borderRadius: '0.25rem', border: '1px solid #334155' }}>
+                            {m.sender_role}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{
+                        padding: '0.75rem 1rem',
+                        borderRadius: '1.125rem',
+                        borderTopRightRadius: isOwner ? '0.25rem' : '1.125rem',
+                        borderTopLeftRadius: !isOwner ? '0.25rem' : '1.125rem',
+                        fontSize: '0.875rem',
+                        lineHeight: 1.6,
+                        wordBreak: 'break-word',
+                        background: isOwner ? 'linear-gradient(to right, #0891b2, #4f46e5)' : '#1e293b',
+                        color: isOwner ? '#ffffff' : '#f1f5f9',
+                        border: isOwner ? 'none' : '1px solid #334155',
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.15)'
+                      }}>
+                        <div style={{ whiteSpace: 'pre-wrap' }}>{m.message}</div>
+                        <div style={{ fontSize: '0.7rem', marginTop: '0.375rem', fontFamily: 'monospace', textAlign: 'right', color: isOwner ? '#a5f3fc' : '#94a3b8' }}>
+                          {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {chatSending && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.825rem', color: '#22d3ee', fontStyle: 'italic', background: 'rgba(30,41,59,0.6)', border: '1px solid rgba(51,65,85,0.6)', padding: '0.625rem 0.875rem', borderRadius: '0.75rem', width: 'fit-content' }}>
+                  <Sparkles size={14} style={{ color: '#22d3ee' }} />
+                  AI Agent sedang memproses...
+                </div>
+              )}
+              <div ref={chatBottomRef} />
+            </div>
+
+            {/* Input Form */}
+            <form onSubmit={handleSendMessage} style={{ padding: '0.75rem', borderTop: '1px solid rgba(51,65,85,0.8)', background: 'rgba(2, 6, 23, 0.95)', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <input 
+                type="text"
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                placeholder={selectedTargetId === 'WAR_ROOM' ? "Kirim instruksi ke War Room..." : `Chat dengan ${currentChatAgent?.name || 'Agent'}...`}
+                style={{ flex: 1, background: '#0f172a', border: '1px solid #334155', borderRadius: '0.75rem', padding: '0.625rem 0.875rem', fontSize: '0.85rem', color: '#ffffff', outline: 'none' }}
+              />
+              <button 
+                type="submit"
+                disabled={!chatInput.trim() || chatSending}
+                style={{ background: '#0891b2', border: 'none', color: '#ffffff', padding: '0.625rem 1rem', borderRadius: '0.75rem', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.375rem', opacity: (!chatInput.trim() || chatSending) ? 0.5 : 1 }}
+              >
+                <Send size={15} />
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Floating Bubble Button */}
+        <button
+          onClick={() => setIsChatOpen(!isChatOpen)}
+          className="floating-chat-btn"
+          title="Buka Company Chat & War Room"
+        >
+          {isChatOpen ? (
+            <X size={24} />
+          ) : (
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <MessageSquare size={24} color="#ffffff" />
+              <span style={{ position: 'absolute', top: '-6px', right: '-6px', width: '12px', height: '12px', borderRadius: '9999px', backgroundColor: '#10b981', border: '2px solid #0f172a' }} />
+            </div>
+          )}
+        </button>
       </div>
     </div>
   );

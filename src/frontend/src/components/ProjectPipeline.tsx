@@ -11,7 +11,9 @@ import {
   Check, 
   ChevronRight,
   Plus,
-  Rocket
+  Rocket,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import type { ProjectItem, ProjectDocument } from './ProjectTimeline';
 
@@ -107,6 +109,8 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedDivisionIndex, setSelectedDivisionIndex] = useState<number>(4); // Default to DevOps or active
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+  const [projectToDelete, setProjectToDelete] = useState<ProjectItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   
   // New Project Form State
   const [newProjName, setNewProjName] = useState<string>('');
@@ -153,6 +157,31 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
       console.error('Error creating new project:', err);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!projectToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`${apiBase}/projects/${projectToDelete.id}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (selectedProjectId === projectToDelete.id) {
+          setSelectedProjectId(null);
+        }
+        setProjectToDelete(null);
+        if (onProjectCreated) onProjectCreated();
+      } else {
+        alert(`Gagal menghapus project: ${data.error || 'Terjadi kesalahan'}`);
+      }
+    } catch (err: any) {
+      console.error('Error deleting project:', err);
+      alert(`Gagal menghapus project: ${err.message}`);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -335,6 +364,39 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
                       <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
                         ID: {project.id.slice(0, 8)}
                       </span>
+
+                      <button
+                        title="Hapus Project"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectToDelete(project);
+                        }}
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          border: '1px solid rgba(239, 68, 68, 0.25)',
+                          color: '#ef4444',
+                          borderRadius: '4px',
+                          padding: '3px 6px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = '#ef4444';
+                          e.currentTarget.style.color = '#ffffff';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                          e.currentTarget.style.color = '#ef4444';
+                        }}
+                      >
+                        <Trash2 size={13} />
+                        Hapus
+                      </button>
                     </div>
 
                     <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#f8fafc', margin: '0 0 0.5rem 0' }}>
@@ -458,6 +520,35 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <button
+                  title="Hapus Project Ini"
+                  onClick={() => setProjectToDelete(selectedProject)}
+                  style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    padding: '0.5rem 0.85rem',
+                    borderRadius: '0.5rem',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#ef4444';
+                    e.currentTarget.style.color = '#ffffff';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+                    e.currentTarget.style.color = '#ef4444';
+                  }}
+                >
+                  <Trash2 size={15} />
+                  Hapus Project
+                </button>
                 <div style={{ textAlign: 'right' }}>
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Status Pengerjaan</span>
                   <div style={{ fontWeight: 700, color: '#38bdf8', fontSize: '0.95rem' }}>
@@ -759,6 +850,96 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
       )}
 
       {/* ========================================================================= */}
+      {/* MODAL: KONFIRMASI HAPUS PROJECT */}
+      {projectToDelete && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem'
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: '460px',
+              backgroundColor: '#0f172a',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              borderRadius: '0.75rem',
+              padding: '1.75rem',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: '#ef4444' }}>
+              <AlertTriangle size={24} />
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: '#f8fafc' }}>
+                Konfirmasi Hapus Project
+              </h3>
+            </div>
+
+            <p style={{ fontSize: '0.9rem', color: '#cbd5e1', lineHeight: 1.5, margin: '0 0 1rem 0' }}>
+              Apakah Anda yakin ingin menghapus project <strong style={{ color: '#f8fafc' }}>"{projectToDelete.name}"</strong>?
+            </p>
+
+            <div style={{ backgroundColor: '#1e293b', borderLeft: '4px solid #ef4444', padding: '0.75rem 1rem', borderRadius: '0.375rem', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1.5rem' }}>
+              <strong style={{ color: '#fca5a5' }}>Peringatan:</strong> Tindakan ini akan menghapus:
+              <ul style={{ margin: '0.4rem 0 0 1.2rem', padding: 0 }}>
+                <li>Layanan process PM2 (jika berjalan)</li>
+                <li>Folder project di filesystem (<code>projects/{projectToDelete.slug || projectToDelete.id}</code>)</li>
+                <li>Semua dokumen PRD, ADR, log token, chat, dan task di database</li>
+              </ul>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setProjectToDelete(null)}
+                style={{
+                  backgroundColor: '#1e293b',
+                  color: '#cbd5e1',
+                  border: '1px solid #334155',
+                  padding: '0.6rem 1.25rem',
+                  borderRadius: '0.5rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteProject}
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '0.6rem 1.5rem',
+                  borderRadius: '0.5rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  opacity: isDeleting ? 0.7 : 1
+                }}
+              >
+                <Trash2 size={16} />
+                {isDeleting ? 'Menghapus...' : 'Ya, Hapus Project'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL: FORM BUAT PROJECT BARU                                             */}
       {/* ========================================================================= */}
       {isCreateModalOpen && (

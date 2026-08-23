@@ -33,27 +33,35 @@
    - Di tampilan **Virtual Office 3D & 2D**, Owner dapat mengklik meja / karakter agen mana pun.
    - Pop-up quick inspector muncul dengan tombol **"💬 Chat With [Nama Agen]"**.
    - Mengklik tombol tersebut akan langsung membuka Floating Chat Bubble dan mengalihkan percakapan 1-on-1 dengan agen tersebut secara instan.
+4. **Project Lifecycle Management — Fitur Hapus Project (Delete Project):**
+   - Mendukung penghapusan project secara menyeluruh (hard delete & cleanup) baik dari dashboard UI maupun REST API (`DELETE /api/projects/:id`).
+   - **Cakupan Pembersihan Otomatis:**
+     * **Database:** Menghapus data project di tabel `projects` beserta semua relasi terkait (`project_documents`, `token_usages`, `tasks`, logs).
+     * **Process Management:** Menghentikan dan menghapus instans PM2 yang sedang berjalan (`pm2 delete <pm2_name>`).
+     * **Filesystem Cleanup:** Menghapus folder direktori project hasil build di `/projects/{slug}/`.
+   - **UI/UX:** Dilengkapi konfirmasi modal peringatan (Confirmation Dialog) sebelum penghapusan dieksekusi agar aman dari ketidaksengajaan.
 
 ---
 
-## 2. Organizational Structure & Agent Roles (14 AI Agents + 1 Owner)
+## 2. Organizational Structure & Agent Roles (15 AI Agents + 1 Owner)
 
 1. **Owner (Nano):** Founder & Root Authority (Human-in-the-loop).
 2. **CEO (Chief Aura):** Eksekutif orkestrator & default chat assistant.
 3. **CPO (Elena Vance):** Pimpinan produk & roadmap.
 4. **Researcher (Dr. Aris):** Riset tren pasar & scanner peluang SaaS.
 5. **Product Manager (Sarah Jenkins):** Pembuat `01_PRD.md` & user stories.
-6. **UI/UX Designer (Kaelen):** Wireframe spec & user flow design.
+6. **UI/UX Designer (Kaelen):** Wireframe spec, design tokens & UI blueprint (`02_UI_UX_Design_System.md`).
 7. **CTO (Marcus Sterling):** Standar teknologi & kualitas rekayasa.
 8. **Architect (Viktor Cruz):** Skema database & kontrak REST API (`03_Architecture_API.md`).
-9. **Fullstack Dev (Devron):** Backend Express + Frontend code generator.
-10. **DevOps / SRE (Cipher):** Scaffolding boilerplate & auto-deploy PM2.
-11. **SQA Engineer (Tessa):** Test suite automation (`04_QA_Test_Report.md`).
-12. **Security Auditor (Sentinel):** Zero-vulnerability audit (`05_Security_Audit.md`).
-13. **CFO (Morgan Drake):** Cost accounting & pricing estimation.
-14. **Legal Counsel (Justicia):** Privacy Policy & Terms of Service (`06_Privacy_Terms.md`).
-15. **Tech Writer (Page):** User Manual & Onboarding docs (`07_User_Manual.md`).
-16. **Marketing & Sales (Vibe & Hunter):** Copy deck & client outreach (`08_Sales_Pitch_Clients.md`).
+9. **Backend Dev (Devron):** Backend Express REST API, persistence & business logic.
+10. **Frontend Dev (Anya):** Dynamic interactive UI, Tailwind CSS, Lucide icons, glassmorphic layout & rich dashboard generator.
+11. **DevOps / SRE (Cipher):** Scaffolding boilerplate & auto-deploy PM2.
+12. **SQA Engineer (Tessa):** Test suite automation & UI/UX Acceptance Verification (`04_QA_Test_Report.md`).
+13. **Security Auditor (Sentinel):** Zero-vulnerability audit (`05_Security_Audit.md`).
+14. **CFO (Morgan Drake):** Cost accounting & pricing estimation.
+15. **Legal Counsel (Justicia):** Privacy Policy & Terms of Service (`06_Privacy_Terms.md`).
+16. **Tech Writer (Page):** User Manual & Onboarding docs (`07_User_Manual.md`).
+17. **Marketing & Sales (Vibe & Hunter):** Copy deck & client outreach (`08_Sales_Pitch_Clients.md`).
 
 ---
 

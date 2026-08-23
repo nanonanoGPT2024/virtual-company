@@ -11,9 +11,14 @@ import ideasRouter from './routes/ideas';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = Number(process.env.PORT) || 4000;
 
-app.use(cors({ origin: '*' }));
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+}));
+
 app.use(express.json());
 
 // Health Check
@@ -25,7 +30,7 @@ app.get('/health', async (req, res) => {
       timestamp: new Date().toISOString(),
       database: 'Connected',
       db_time: dbRes.rows[0].now,
-      version: '2.0.0 (Redesigned)'
+      version: '2.1.0'
     });
   } catch (error: any) {
     res.status(500).json({ status: 'ERROR', message: error.message });
@@ -58,6 +63,6 @@ app.use('/api/chat', chatRouter);
 app.use('/api/activities', activitiesRouter);
 app.use('/api/ideas', ideasRouter);
 
-app.listen(PORT, () => {
-  console.log(`[Company OS v2.0] Backend running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[Company OS v2.1] Backend running on port ${PORT}`);
 });
