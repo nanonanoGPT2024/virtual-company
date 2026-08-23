@@ -13,13 +13,17 @@ import {
   Send,
   MessageSquare,
   X,
-  Bot
+  Bot,
+  Users,
+  LogOut,
+  Lock
 } from 'lucide-react';
 import VirtualOffice from './components/VirtualOffice';
 import ProjectPipeline from './components/ProjectPipeline';
 import type { ProjectItem } from './components/ProjectTimeline';
 import LiveFeed from './components/LiveFeed';
 import FinancialChart from './components/FinancialChart';
+import UserDirectory from './components/UserDirectory';
 
 interface Agent {
   id: string;
@@ -48,7 +52,14 @@ interface Idea {
   created_at?: string;
 }
 
-type NavTab = 'office' | 'pipeline' | 'ideas' | 'activity' | 'finance';
+type NavTab = 'office' | 'pipeline' | 'ideas' | 'activity' | 'finance' | 'users';
+
+interface CurrentUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'OWNER' | 'CLIENT';
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('office');
@@ -59,6 +70,24 @@ export default function App() {
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [isTheaterMode, setIsTheaterMode] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d');
+
+  // Multi-User Auth State
+  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('company_os_token') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJVU1ItT1dORVItMDAxIiwiZW1haWwiOiJuYW5vQGNvbXBhbnkub3MiLCJyb2xlIjoiT1dORVIiLCJpYXQiOjE3ODc0ODAyNDYwOTR9.u4p6rQE-24Bfz2YI4189YPS6AcrE4Q16VRHtpvNob74');
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => {
+    const saved = localStorage.getItem('company_os_user');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (_) {}
+    }
+    return { id: 'USR-OWNER-001', name: 'Nano', email: 'nano@company.os', role: 'OWNER' };
+  });
+
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isAuthModeLogin, setIsAuthModeLogin] = useState<boolean>(true);
+  const [authName, setAuthName] = useState<string>('');
+  const [authEmail, setAuthEmail] = useState<string>('');
+  const [authPassword, setAuthPassword] = useState<string>('');
+  const [authError, setAuthError] = useState<string>('');
+  const [authSubmitting, setAuthSubmitting] = useState<boolean>(false);
   
   // Floating Chat State
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
@@ -112,11 +141,16 @@ export default function App() {
       setLoading(true);
     }
     try {
+      const headers: Record<string, string> = {};
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
       const [companyRes, agentsRes, ideasRes, projectsRes] = await Promise.all([
-        fetch(`${API_BASE}/company`).then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch(`${API_BASE}/agents`).then(r => r.ok ? r.json() : []).catch(() => []),
-        fetch(`${API_BASE}/ideas`).then(r => r.ok ? r.json() : []).catch(() => []),
-        fetch(`${API_BASE}/projects`).then(r => r.ok ? r.json() : []).catch(() => [])
+        fetch(`${API_BASE}/company`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch(`${API_BASE}/agents`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch(`${API_BASE}/ideas`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch(`${API_BASE}/projects`, { headers }).then(r => r.ok ? r.json() : []).catch(() => [])
       ]);
 
       const loadedAgents = Array.isArray(agentsRes) ? agentsRes : (companyRes?.employees || []);
@@ -134,6 +168,54 @@ export default function App() {
         setLoading(false);
       }
     }
+  };
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthSubmitting(true);
+    const endpoint = isAuthModeLogin ? `${API_BASE}/auth/login` : `${API_BASE}/auth/register`;
+    const payload = isAuthModeLogin 
+      ? { email: authEmail, password: authPassword }
+      : { name: authName, email: authEmail, password: authPassword };
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAuthToken(data.token);
+        setCurrentUser(data.user);
+        localStorage.setItem('company_os_token', data.token);
+        localStorage.setItem('company_os_user', JSON.stringify(data.user));
+        setIsAuthModalOpen(false);
+        setAuthEmail('');
+        setAuthPassword('');
+        setAuthName('');
+        fetchData();
+      } else {
+        setAuthError(data.error || 'Autentikasi gagal');
+      }
+    } catch (err: any) {
+      setAuthError(err.message);
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('company_os_token');
+    localStorage.removeItem('company_os_user');
+    setAuthToken(null);
+    setCurrentUser(null);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleInspectUserProjects = (_userId: string, _userName: string) => {
+    setActiveTab('pipeline');
   };
 
   const fetchChat = async (targetId: string) => {
@@ -336,6 +418,18 @@ export default function App() {
               <DollarSign size={18} />
               {!isSidebarCollapsed && <span className="nav-text">Financial Analytics</span>}
             </button>
+
+            {/* 6. Owner User Directory (Role === 'OWNER' Only) */}
+            {currentUser?.role === 'OWNER' && (
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
+                style={{ borderColor: activeTab === 'users' ? '#38bdf8' : 'transparent' }}
+              >
+                <Users size={18} color="#38bdf8" />
+                {!isSidebarCollapsed && <span className="nav-text" style={{ color: '#38bdf8', fontWeight: 700 }}>👥 User Directory</span>}
+              </button>
+            )}
           </div>
 
           <div className="sidebar-footer" style={{ marginTop: 'auto', fontSize: '0.75rem', color: '#64748b', textAlign: 'center', padding: '1rem 0.5rem' }}>
@@ -362,7 +456,51 @@ export default function App() {
                 </p>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+              {/* User Role Badge */}
+              {currentUser ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: '#0f172a', padding: '0.35rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #334155', fontSize: '0.8rem' }}>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    color: currentUser.role === 'OWNER' ? '#38bdf8' : '#34d399',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem'
+                  }}>
+                    {currentUser.role === 'OWNER' ? '👑 Root Owner: ' : '👤 Client: '}
+                    <strong style={{ color: '#f8fafc' }}>{currentUser.name}</strong>
+                  </span>
+                  <button 
+                    onClick={handleLogout}
+                    title="Logout"
+                    style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', marginLeft: '0.4rem' }}
+                  >
+                    <LogOut size={14} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  style={{
+                    backgroundColor: '#0284c7',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '0.4rem 0.85rem',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem'
+                  }}
+                >
+                  <Lock size={14} />
+                  Login / Register
+                </button>
+              )}
+
               <button 
                 onClick={() => setIsTheaterMode(true)} 
                 className="btn-refresh" 
@@ -714,9 +852,127 @@ export default function App() {
                 <FinancialChart agents={agents} />
               </div>
             )}
+
+            {/* TAB 6: OWNER USER DIRECTORY */}
+            {activeTab === 'users' && currentUser?.role === 'OWNER' && (
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+                <UserDirectory 
+                  apiBase={API_BASE} 
+                  authToken={authToken || ''} 
+                  onInspectUserProjects={handleInspectUserProjects}
+                />
+              </div>
+            )}
           </>
         )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* MULTI-USER AUTH MODAL (LOGIN & REGISTER)                                  */}
+      {/* ========================================================================= */}
+      {isAuthModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 999999,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '420px', padding: '2rem', backgroundColor: '#0f172a', border: '1px solid #38bdf8', borderRadius: '1rem', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '0.5rem', backgroundColor: 'rgba(56, 189, 248, 0.2)', border: '1px solid rgba(56, 189, 248, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
+                  <Lock size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc' }}>
+                    {isAuthModeLogin ? 'Login ke VirtuLabs' : 'Daftar Akun Klien Baru'}
+                  </h3>
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Virtual Company OS v2.2</span>
+                </div>
+              </div>
+              <button onClick={() => setIsAuthModalOpen(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.4rem' }}>&times;</button>
+            </div>
+
+            {authError && (
+              <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#fca5a5', padding: '0.6rem 0.8rem', borderRadius: '0.5rem', fontSize: '0.8rem', marginBottom: '1rem' }}>
+                {authError}
+              </div>
+            )}
+
+            <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {!isAuthModeLogin && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.3rem' }}>Nama Lengkap</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Budi Santoso"
+                    value={authName}
+                    onChange={(e) => setAuthName(e.target.value)}
+                    style={{ width: '100%', padding: '0.65rem 0.85rem', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '0.5rem', color: '#fff', fontSize: '0.85rem', outline: 'none' }}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.3rem' }}>Email</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="user@perusahaan.com"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  style={{ width: '100%', padding: '0.65rem 0.85rem', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '0.5rem', color: '#fff', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.3rem' }}>Password</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  style={{ width: '100%', padding: '0.65rem 0.85rem', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '0.5rem', color: '#fff', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={authSubmitting}
+                style={{
+                  marginTop: '0.5rem',
+                  padding: '0.75rem',
+                  background: 'linear-gradient(to right, #0284c7, #4f46e5)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  opacity: authSubmitting ? 0.7 : 1
+                }}
+              >
+                {authSubmitting ? 'Memproses...' : (isAuthModeLogin ? 'Masuk Sekarang' : 'Daftar & Masuk')}
+              </button>
+            </form>
+
+            <div style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.8rem', color: '#94a3b8' }}>
+              {isAuthModeLogin ? (
+                <span>Belum punya akun? <button type="button" onClick={() => { setIsAuthModeLogin(false); setAuthError(''); }} style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', fontWeight: 700 }}>Daftar Klien Baru</button></span>
+              ) : (
+                <span>Sudah punya akun? <button type="button" onClick={() => { setIsAuthModeLogin(true); setAuthError(''); }} style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', fontWeight: 700 }}>Login di sini</button></span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* FLOATING CHAT BUBBLE & DRAWER (PRD v2.1) - GLASSMORPHISM & NEON GLOW     */}

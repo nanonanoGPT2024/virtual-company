@@ -275,9 +275,15 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
 
     setIsSubmitting(true);
     try {
+      const token = localStorage.getItem('company_os_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch(`${apiBase}/projects`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           name: newProjName,
           description: newProjDesc,

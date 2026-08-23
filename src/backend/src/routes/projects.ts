@@ -5,6 +5,7 @@ import { pool } from '../config/db';
 import { runProjectPipeline } from '../services/projectPipeline';
 import { logActivity } from '../services/activityService';
 import { generateProjectSpecTemplateDocx } from '../services/docExportService';
+import { authenticateUser } from './auth';
 import { exec } from 'child_process';
 import util from 'util';
 
@@ -24,10 +25,27 @@ router.get('/template/project-spec.docx', async (req, res) => {
   }
 });
 
-// GET all projects
-router.get('/', async (req, res) => {
+// GET all projects (RBAC protected: CLIENT sees only their projects, OWNER sees all)
+router.get('/', authenticateUser, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM projects ORDER BY created_at DESC');
+    const user = (req as any).user;
+    const { user_id } = req.query;
+
+    let query = 'SELECT * FROM projects';
+    const params: any[] = [];
+
+    if (user && user.role === 'CLIENT') {
+      // Client is restricted to their own projects
+      query += ' WHERE user_id = $1';
+      params.push(user.id);
+    } else if (user_id) {
+      // Owner or filtered query by user_id
+      query += ' WHERE user_id = $1';
+      params.push(user_id);
+    }
+
+    query += ' ORDER BY created_at DESC';
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -150,8 +168,12 @@ with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
 });
 
 // POST Create new project
-router.post('/', async (req, res) => {
+router.post('/', authenticateUser, async (req, res) => {
   try {
+    const user = (req as any).user;
+    const creatorUserId = user ? user.id : 'USR-OWNER-001';
+    const creatorName = user ? user.name : 'Nano (Owner)';
+
     const { 
       title, 
       name, 
@@ -184,13 +206,13 @@ router.post('/', async (req, res) => {
     const projectDir = path.join(baseDir, slug);
 
     const newProject = await pool.query(
-      `INSERT INTO projects (id, company_id, title, slug, description, goal, port, status, current_stage, progress_percentage, repo_path)
-       VALUES ($1, 'COMP-001', $2, $3, $4, $5, $6, 'INITIATED', 'Discovery & Spec', 5, $7)
+      `INSERT INTO projects (id, company_id, user_id, title, slug, description, goal, port, status, current_stage, progress_percentage, repo_path)
+       VALUES ($1, 'COMP-001', $2, $3, $4, $5, $6, $7, 'INITIATED', 'Discovery & Spec', 5, $8)
        RETURNING *`,
-      [projectId, projectTitle, slug, description || projectTitle, goal || description || projectTitle, assignedPort, projectDir]
+      [projectId, creatorUserId, projectTitle, slug, description || projectTitle, goal || description || projectTitle, assignedPort, projectDir]
     );
 
-    await logActivity('RESEARCH', `Owner (Nano) menginisiasi proyek baru: "${projectTitle}"`, 'EMP-OWNER', projectId);
+    await logActivity('RESEARCH', `${creatorName} menginisiasi proyek baru: "${projectTitle}"`, 'EMP-OWNER', projectId);
 
     // Trigger async pipeline in background with enterprise options
     runProjectPipeline(projectId, { 

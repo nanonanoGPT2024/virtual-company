@@ -1,13 +1,13 @@
-# Product Requirements Document (PRD) — v2.1
+# Product Requirements Document (PRD) — v2.2
 # AI Virtual Company OS — Autonomous Software & Product Studio
 
 | Attribute | Details |
 | :--- | :--- |
 | **Product Name** | AI Virtual Company OS |
-| **Version** | 2.1 (Floating Chat & Direct 3D Interaction) |
+| **Version** | 2.2 (Multi-User Public Access, User-Centric RBAC & Owner Oversight) |
 | **Status** | Approved by Owner / In Implementation |
 | **Product Type** | AI-Native Autonomous Software & Product Studio OS |
-| **Owner / Root** | Human Founder / Owner (Nano) |
+| **Owner / Root** | Human Founder / Root Owner (Nano) |
 
 ---
 
@@ -24,6 +24,7 @@
      * 💡 **Idea Radar**
      * ⚡ **Live Activity Stream**
      * 💰 **Financial Analytics**
+     * 👥 **User Management Hub (Khusus Owner)**
 2. **Floating Message Bubble (Pojok Kanan Bawah):**
    - Komponen floating chat widget melayang di pojok kanan bawah layar (`bottom-6 right-6`).
    - Saat diklik, membuka pop-up drawer percakapan chat modern.
@@ -33,17 +34,35 @@
    - Di tampilan **Virtual Office 3D & 2D**, Owner dapat mengklik meja / karakter agen mana pun.
    - Pop-up quick inspector muncul dengan tombol **"💬 Chat With [Nama Agen]"**.
    - Mengklik tombol tersebut akan langsung membuka Floating Chat Bubble dan mengalihkan percakapan 1-on-1 dengan agen tersebut secara instan.
-4. **Project Lifecycle Management — Fitur Hapus Project (Delete Project):**
+4. **Project Lifecycle Management — Fitur Hapus Project & ZIP Export:**
    - Mendukung penghapusan project secara menyeluruh (hard delete & cleanup) baik dari dashboard UI maupun REST API (`DELETE /api/projects/:id`).
-   - **Cakupan Pembersihan Otomatis:**
-     * **Database:** Menghapus data project di tabel `projects` beserta semua relasi terkait (`project_documents`, `token_usages`, `tasks`, logs).
-     * **Process Management:** Menghentikan dan menghapus instans PM2 yang sedang berjalan (`pm2 delete <pm2_name>`).
-     * **Filesystem Cleanup:** Menghapus folder direktori project hasil build di `/projects/{slug}/`.
-   - **UI/UX:** Dilengkapi konfirmasi modal peringatan (Confirmation Dialog) sebelum penghapusan dieksekusi agar aman dari ketidaksengajaan.
+   - Mendukung ekspor seluruh direktori project (source code `src/` & dokumen `docs/`) ke dalam arsip bundle **`.ZIP`** (`GET /api/projects/:id/download-zip`).
+   - Dokumen deliverables resmi tersedia dalam format Microsoft Word (`.docx`) dan Microsoft Excel (`.xlsx`).
 
 ---
 
-## 2. Organizational Structure & Agent Roles (15 AI Agents + 1 Owner)
+## 2. Multi-User Hierarchy & Access Control (v2.2):
+
+### A. Hirarki Perorangan (User-Centric Architecture)
+Sistem menggunakan hirarki berbasis user murni (`1 User Account = Owns Their Own Projects`):
+1. 👑 **Root Owner (Bang Nano):**
+   - **Master Oversight (God Mode):** Melihat seluruh daftar user publik yang terdaftar beserta seluruh project yang dibuat.
+   - **Pipeline Inspection:** Dapat membuka dan menginspeksi alur pengerjaan pipeline, dokumen Word/Excel, dan source code ZIP dari project milik user mana pun.
+   - **Infrastructure Control:** Kontrol alokasi port server, PM2 global runtime, dan restart service.
+2. 👤 **Client / Pengguna Umum (Client Portal):**
+   - **Self-Service Workspace:** Registrasi/Login instan mandiri.
+   - **Strict Data Isolation:** Klien hanya dapat melihat, mengelola, dan mendownload project milik akunnya sendiri.
+   - **Free Unlimited Projects:** Bebas membuat project tanpa batasan kuota/kredit.
+   - **Zero Visibility:** Klien tidak dapat melihat daftar pengguna lain maupun project milik pengguna lain.
+
+### B. Skema Keamanan & Database Relasi
+- **Tabel `users`:** `id`, `name`, `email`, `password_hash`, `role` (`OWNER` | `CLIENT`), `created_at`.
+- **Tabel `projects`:** Penambahan relasi `user_id` untuk isolasi hak akses data.
+- **Middleware Proteksi (`authMiddleware`):** Validasi token JWT pada seluruh endpoint REST API.
+
+---
+
+## 3. Organizational Structure & Agent Roles (15 AI Agents + 1 Owner)
 
 1. **Owner (Nano):** Founder & Root Authority (Human-in-the-loop).
 2. **CEO (Chief Aura):** Eksekutif orkestrator & default chat assistant.

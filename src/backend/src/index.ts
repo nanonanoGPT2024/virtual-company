@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { pool } from './config/db';
 import projectsRouter from './routes/projects';
+import authRouter from './routes/auth';
+import adminRouter from './routes/admin';
 import agentsRouter from './routes/agents';
 import chatRouter from './routes/chat';
 import activitiesRouter from './routes/activities';
@@ -57,6 +59,8 @@ app.get('/api/company', async (req, res) => {
 });
 
 // API Routes
+app.use('/api/auth', authRouter);
+app.use('/api/admin', adminRouter);
 app.use('/api/projects', projectsRouter);
 app.use('/api/template', projectsRouter);
 app.use('/api/agents', agentsRouter);
