@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Layers, 
   CheckCircle2, 
@@ -107,16 +107,154 @@ const PIPELINE_DIVISIONS: DivisionStage[] = [
 
 export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 'http://localhost:4000/api' }: ProjectPipelineProps) {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectDetail, setSelectedProjectDetail] = useState<any | null>(null);
   const [selectedDivisionIndex, setSelectedDivisionIndex] = useState<number>(4); // Default to DevOps or active
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [projectToDelete, setProjectToDelete] = useState<ProjectItem | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  // Fetch full details (including live documents and tasks) when a project is selected or polled
+  useEffect(() => {
+    if (!selectedProjectId) {
+      setSelectedProjectDetail(null);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchDetail = async () => {
+      try {
+        const res = await fetch(`${apiBase}/projects/${selectedProjectId}`);
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          setSelectedProjectDetail(data);
+        }
+      } catch (err) {
+        console.warn('Error fetching project details:', err);
+      }
+    };
+
+    fetchDetail();
+    const interval = setInterval(fetchDetail, 3000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [selectedProjectId, apiBase]);
   
-  // New Project Form State
+  // New Project Form State (Enterprise Edition)
   const [newProjName, setNewProjName] = useState<string>('');
   const [newProjDesc, setNewProjDesc] = useState<string>('');
   const [newProjBudget, setNewProjBudget] = useState<string>('15000');
+  const [newProjTargetDir, setNewProjTargetDir] = useState<string>('');
+  const [newProjTheme, setNewProjTheme] = useState<'cyber' | 'emerald' | 'indigo' | 'light'>('cyber');
+  const [newProjIncludeAuth, setNewProjIncludeAuth] = useState<boolean>(true);
+  const [newProjStorageType, setNewProjStorageType] = useState<'memory' | 'sqlite'>('memory');
+  const [uploadedImages, setUploadedImages] = useState<Array<{ name: string; menuLabel: string; base64: string; mimeType: string; previewUrl: string }>>([]);
+  const [attachedDocs, setAttachedDocs] = useState<Array<{ name: string; base64: string }>>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Preset Archetypes
+  const PRESET_TEMPLATES = [
+    {
+      id: 'ecommerce',
+      label: '🛒 E-Commerce & POS',
+      name: 'OmniStore POS & E-Commerce Hub',
+      desc: 'Sistem manajemen katalog produk, checkout kasir POS, stok inventaris otomatis, dan integrasi WhatsApp invoice.',
+      theme: 'emerald' as const,
+      auth: true,
+      storage: 'sqlite' as const
+    },
+    {
+      id: 'hr',
+      label: '👥 HR & User Management',
+      name: 'TalentPulse HRIS & Attendance Hub',
+      desc: 'Portal manajemen karyawan, absensi GPS, persetujuan cuti berjenjang, dan perhitungan payroll slip gaji.',
+      theme: 'indigo' as const,
+      auth: true,
+      storage: 'sqlite' as const
+    },
+    {
+      id: 'saas',
+      label: '📊 SaaS Analytics',
+      name: 'MetricPulse Analytics Dashboard',
+      desc: 'Platform pelacak KPI bisnis real-time, cohort retention, MRR chart, dan visualisasi aktivitas user.',
+      theme: 'cyber' as const,
+      auth: true,
+      storage: 'memory' as const
+    },
+    {
+      id: 'task',
+      label: '📋 Task Tracker',
+      name: 'FlowTask Agile Work Tracker',
+      desc: 'Kanban board interaktif, delegasi tugas antar divisi, milestone deadline, dan reminder notifikasi.',
+      theme: 'cyber' as const,
+      auth: false,
+      storage: 'memory' as const
+    }
+  ];
+
+  const handleApplyPreset = (preset: typeof PRESET_TEMPLATES[0]) => {
+    setNewProjName(preset.name);
+    setNewProjDesc(preset.desc);
+    setNewProjTheme(preset.theme);
+    setNewProjIncludeAuth(preset.auth);
+    setNewProjStorageType(preset.storage);
+  };
+
+  const handleDocFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const files = Array.from(e.target.files);
+
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        setAttachedDocs(prev => [
+          ...prev,
+          {
+            name: file.name,
+            base64
+          }
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveDoc = (index: number) => {
+    setAttachedDocs(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const files = Array.from(e.target.files);
+
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        setUploadedImages(prev => [
+          ...prev,
+          {
+            name: file.name,
+            menuLabel: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
+            base64,
+            mimeType: file.type,
+            previewUrl: base64
+          }
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleImageLabelChange = (index: number, newLabel: string) => {
+    setUploadedImages(prev => prev.map((item, i) => i === index ? { ...item, menuLabel: newLabel } : item));
+  };
 
   const handleDownloadMd = (title: string, contentText: string) => {
     const filename = `${title.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()}.md`;
@@ -143,13 +281,26 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
         body: JSON.stringify({
           name: newProjName,
           description: newProjDesc,
-          budget_usd: parseFloat(newProjBudget) || 15000.00
+          budget_usd: parseFloat(newProjBudget) || 15000.00,
+          target_dir: newProjTargetDir.trim() || undefined,
+          theme: newProjTheme,
+          includeAuth: newProjIncludeAuth,
+          storageType: newProjStorageType,
+          attachedDocs: attachedDocs.map(d => ({ name: d.name, base64: d.base64 })),
+          images: uploadedImages.map(img => ({
+            name: img.name,
+            menuLabel: img.menuLabel,
+            base64: img.base64,
+            mimeType: img.mimeType
+          }))
         })
       });
-      const data = await res.json();
-      if (data.success) {
+      if (res.ok) {
         setNewProjName('');
         setNewProjDesc('');
+        setNewProjTargetDir('');
+        setUploadedImages([]);
+        setAttachedDocs([]);
         setIsCreateModalOpen(false);
         if (onProjectCreated) onProjectCreated();
       }
@@ -186,66 +337,34 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
   };
 
   // Compute status for each division stage for a given project
-  const getProjectDivisionState = (project: ProjectItem) => {
-    const tasks = project.tasks || [];
-    const totalTasks = tasks.length;
-    const completedTasks = tasks.filter(t => t.status === 'COMPLETED').length;
-    
-    // 6 Pipeline Stages:
-    // 0: Executive & Strategy
-    // 1: Product & Planning
-    // 2: Engineering & Dev
-    // 3: QA & Verification
-    // 4: DevOps & WSL Deployment
-    // 5: Marketing & Release
+  const getProjectDivisionState = (project: any) => {
+    const stage = project.current_stage || '';
+    const status = project.status || '';
+    const progress = typeof project.progress_percentage === 'number' ? project.progress_percentage : (status === 'DEPLOYED' || status === 'COMPLETED' ? 100 : 20);
 
-    const stageKeywords = [
-      ['executive', 'strategic', 'budget lock'],
-      ['product', 'scope', 'prd', 'specification', 'user flow'],
-      ['core system', 'implementation', 'code', 'backend boilerplate', 'engineering', 'developer'],
-      ['qa', 'testing', 'audit', 'verification'],
-      ['devops', 'deployment', 'wsl', 'container'],
-      ['market', 'launch', 'release', 'marketing']
-    ];
+    // If stage matches specific text from pipeline
+    // 0: Executive & Strategy ('Discovery & Spec')
+    // 1: Product & Planning ('Discovery & Product Requirements (PRD)')
+    // 2: Engineering & Dev ('Architecture', 'Parallel Engineering', 'Building')
+    // 3: QA & Verification ('Testing', 'QA Testing & Security Audit')
+    // 4: DevOps & WSL Deployment ('DevOps Deploying to PM2')
+    // 5: Marketing & Release / Completed ('Live & Ready for Owner', 'DEPLOYED', 'COMPLETED')
 
     let activeDivIdx = 0;
-    let foundActive = false;
-
-    for (let i = 0; i < 6; i++) {
-      const keywords = stageKeywords[i];
-      const stageTasks = tasks.filter(t => 
-        keywords.some(k => (t.title || '').toLowerCase().includes(k) || (t.goal || '').toLowerCase().includes(k))
-      );
-      if (stageTasks.length > 0) {
-        const allCompleted = stageTasks.every(t => t.status === 'COMPLETED');
-        if (!allCompleted) {
-          activeDivIdx = i;
-          foundActive = true;
-          break;
-        }
-      }
+    if (stage.includes('PRD') || stage.includes('Product Requirements')) {
+      activeDivIdx = 1;
+    } else if (stage.includes('Architecture') || stage.includes('Parallel Engineering') || stage.includes('Building') || stage.includes('Scaffolding')) {
+      activeDivIdx = 2;
+    } else if (stage.includes('QA') || stage.includes('Testing') || stage.includes('Security Audit')) {
+      activeDivIdx = 3;
+    } else if (stage.includes('Deploy') || stage.includes('DevOps') || stage.includes('PM2')) {
+      activeDivIdx = 4;
+    } else if (stage.includes('Live') || status === 'DEPLOYED' || status === 'COMPLETED' || progress === 100) {
+      activeDivIdx = 5;
     }
 
-    if (!foundActive) {
-      if (totalTasks === 0) {
-        activeDivIdx = 0;
-      } else if (completedTasks === totalTasks && project.status === 'COMPLETED') {
-        activeDivIdx = 5;
-      } else if (completedTasks >= 4) {
-        activeDivIdx = 4;
-      } else if (completedTasks >= 3) {
-        activeDivIdx = 3;
-      } else if (completedTasks >= 2) {
-        activeDivIdx = 2;
-      } else if (completedTasks >= 1) {
-        activeDivIdx = 1;
-      } else {
-        activeDivIdx = 0;
-      }
-    }
-
-    const isClosed = project.status === 'COMPLETED';
-    const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : (isClosed ? 100 : 20);
+    const isClosed = status === 'COMPLETED' || status === 'DEPLOYED' || progress === 100;
+    const progressPercent = progress;
 
     return {
       currentDivision: PIPELINE_DIVISIONS[activeDivIdx] || PIPELINE_DIVISIONS[0],
@@ -255,7 +374,16 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
     };
   };
 
-  const selectedProject = projects.find(p => p.id === selectedProjectId) || null;
+  const rawSelectedProject = projects.find(p => p.id === selectedProjectId) || null;
+  const selectedProject = selectedProjectDetail?.project 
+    ? {
+        ...rawSelectedProject,
+        ...selectedProjectDetail.project,
+        documents: selectedProjectDetail.documents || [],
+        tasks: selectedProjectDetail.tasks || [],
+        costs: selectedProjectDetail.costs || []
+      }
+    : rawSelectedProject;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -365,12 +493,47 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
                         ID: {project.id.slice(0, 8)}
                       </span>
 
-                      <button
-                        title="Hapus Project"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setProjectToDelete(project);
-                        }}
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <button
+                          title="Download Bundle (.ZIP)"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const apiTarget = apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api");
+                            window.open(`${apiTarget}/projects/${project.id}/download-zip`, '_blank');
+                          }}
+                          style={{
+                            background: 'rgba(2, 132, 199, 0.15)',
+                            border: '1px solid rgba(56, 189, 248, 0.3)',
+                            color: '#38bdf8',
+                            borderRadius: '4px',
+                            padding: '3px 8px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#0284c7';
+                            e.currentTarget.style.color = '#ffffff';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(2, 132, 199, 0.15)';
+                            e.currentTarget.style.color = '#38bdf8';
+                          }}
+                        >
+                          <Download size={13} />
+                          ZIP
+                        </button>
+
+                        <button
+                          title="Hapus Project"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProjectToDelete(project);
+                          }}
                         style={{
                           background: 'rgba(239, 68, 68, 0.1)',
                           border: '1px solid rgba(239, 68, 68, 0.25)',
@@ -397,6 +560,7 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
                         <Trash2 size={13} />
                         Hapus
                       </button>
+                    </div>
                     </div>
 
                     <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#f8fafc', margin: '0 0 0.5rem 0' }}>
@@ -520,6 +684,34 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <button
+                  title="Download Seluruh Project (.ZIP)"
+                  onClick={() => {
+                    const apiTarget = apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api");
+                    window.open(`${apiTarget}/projects/${selectedProject.id}/download-zip`, '_blank');
+                  }}
+                  style={{
+                    backgroundColor: '#0284c7',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.5rem',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    boxShadow: '0 2px 4px rgba(2, 132, 199, 0.35)',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0369a1')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#0284c7')}
+                >
+                  <Download size={15} />
+                  Download Project (.ZIP)
+                </button>
+
                 <button
                   title="Hapus Project Ini"
                   onClick={() => setProjectToDelete(selectedProject)}
@@ -676,16 +868,31 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
             const isCompleted = selectedDivisionIndex < activeDivIdx;
             const isCurrent = selectedDivisionIndex === activeDivIdx;
 
-            // Filter relevant documents for this specific division
-            const matchingDocs = (selectedProject.documents || []).filter(d => {
+            // Filter relevant documents for this specific division (Matching all backend generated spec types)
+            const allDocs = (selectedProject.documents || []) as ProjectDocument[];
+            const matchingDocs = allDocs.filter((d: ProjectDocument) => {
               const docType = (d.type || '').toUpperCase();
-              if (activeDiv.code === 'Executive') return docType === 'BIZ_CASE' || docType === 'STRATEGY' || docType === 'BUDGET';
-              if (activeDiv.code === 'Product') return docType === 'PRD' || docType === 'BRD' || docType === 'UX_SPEC';
-              if (activeDiv.code === 'Engineering') return docType === 'ADR' || docType === 'HLD' || docType === 'LLD' || docType === 'CODE';
-              if (activeDiv.code === 'Quality Assurance') return docType === 'QA' || docType === 'TEST_PLAN' || docType === 'AUDIT';
-              if (activeDiv.code === 'DevOps') return docType === 'DEVOPS' || docType === 'DOCKER' || docType === 'DEPLOY';
-              if (activeDiv.code === 'Marketing') return docType === 'MARKETING' || docType === 'BLOG' || docType === 'RELEASE';
-              return false;
+              const docTitle = (d.title || '').toUpperCase();
+
+              if (activeDiv.code === 'Executive') {
+                return docType.includes('BIZ') || docType.includes('STRATEGY') || docType.includes('BUDGET') || docType.includes('SALES') || docTitle.includes('08_SALES');
+              }
+              if (activeDiv.code === 'Product') {
+                return docType === 'PRD' || docType === 'BRD' || docType.includes('UX') || docTitle.includes('01_PRD') || docTitle.includes('02_UI_UX');
+              }
+              if (activeDiv.code === 'Engineering') {
+                return docType.includes('ARCH') || docType.includes('API') || docType.includes('CODE') || docTitle.includes('03_ARCHITECTURE');
+              }
+              if (activeDiv.code === 'Quality Assurance') {
+                return docType.includes('QA') || docType.includes('SEC') || docType.includes('AUDIT') || docType.includes('TEST') || docTitle.includes('04_QA') || docTitle.includes('05_SECURITY');
+              }
+              if (activeDiv.code === 'DevOps') {
+                return docType.includes('DEV') || docType.includes('DOCKER') || docType.includes('DEPLOY') || docType.includes('ECOSYSTEM');
+              }
+              if (activeDiv.code === 'Marketing') {
+                return docType.includes('MARKETING') || docType.includes('SALES') || docType.includes('LEGAL') || docType.includes('USER_MANUAL') || docTitle.includes('06_PRIVACY') || docTitle.includes('07_USER') || docTitle.includes('08_SALES');
+              }
+              return true;
             });
 
             return (
@@ -748,9 +955,9 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', fontSize: '0.8rem', color: '#cbd5e1' }}>
                       <div><strong>Host Target:</strong> WSL2 (Linux 6.6)</div>
-                      <div><strong>Allocated Port:</strong> <code>5173</code> / <code>4000</code></div>
-                      <div><strong>Container Engine:</strong> Docker (company-os)</div>
-                      <div><strong>Local Access:</strong> <a href="http://localhost:5173" target="_blank" rel="noreferrer" style={{ color: '#38bdf8' }}>http://localhost:5173</a></div>
+                      <div><strong>Allocated Port:</strong> <code>{selectedProject.port || 5001}</code></div>
+                      <div><strong>Process Manager:</strong> PM2 ({selectedProject.pm2_name || `proj-${selectedProject.slug}`})</div>
+                      <div><strong>Live Application URL:</strong> <a href={selectedProject.live_url || `http://localhost:${selectedProject.port || 5001}`} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', fontWeight: 600 }}>{selectedProject.live_url || `http://localhost:${selectedProject.port || 5001}`}</a></div>
                     </div>
                   </div>
                 )}
@@ -798,26 +1005,99 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
                               </span>
                             </div>
 
-                            <button
-                              onClick={() => handleDownloadMd(doc.title, doc.content)}
-                              style={{
-                                backgroundColor: '#0284c7',
-                                color: '#ffffff',
-                                border: 'none',
-                                padding: '0.4rem 0.85rem',
-                                borderRadius: '0.375rem',
-                                fontSize: '0.8rem',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.4rem',
-                                transition: 'background-color 0.2s'
-                              }}
-                            >
-                              <Download size={14} />
-                              Download .md
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => handleDownloadMd(doc.title, doc.content)}
+                                style={{
+                                  backgroundColor: '#1e293b',
+                                  color: '#38bdf8',
+                                  border: '1px solid #334155',
+                                  padding: '0.35rem 0.65rem',
+                                  borderRadius: '0.375rem',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem'
+                                }}
+                              >
+                                <Download size={13} />
+                                .md
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  const docxName = ((doc as any).file_path || doc.title).replace(/\.md$/i, '.docx').replace(/^docs[\\/]/, '');
+                                  window.open(`${apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api")}/projects/${selectedProject.id}/download-file?filename=${encodeURIComponent(docxName)}`, '_blank');
+                                }}
+                                style={{
+                                  backgroundColor: '#0284c7',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  padding: '0.35rem 0.65rem',
+                                  borderRadius: '0.375rem',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem'
+                                }}
+                              >
+                                <Download size={13} />
+                                Word (.docx)
+                              </button>
+
+                              {/* Show Excel export button on QA and Financial / Commercial documents */}
+                              {(doc.title.includes('QA') || doc.title.includes('Security')) && (
+                                <button
+                                  onClick={() => {
+                                    window.open(`${apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api")}/projects/${selectedProject.id}/download-file?filename=SIT_UAT_Test_Matrix.xlsx`, '_blank');
+                                  }}
+                                  style={{
+                                    backgroundColor: '#059669',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    padding: '0.35rem 0.65rem',
+                                    borderRadius: '0.375rem',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem'
+                                  }}
+                                >
+                                  <Download size={13} />
+                                  Excel (.xlsx)
+                                </button>
+                              )}
+
+                              {(doc.title.includes('Sales') || doc.title.includes('Privacy') || doc.title.includes('PRD')) && (
+                                <button
+                                  onClick={() => {
+                                    window.open(`${apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api")}/projects/${selectedProject.id}/download-file?filename=Financial_Model_Budget.xlsx`, '_blank');
+                                  }}
+                                  style={{
+                                    backgroundColor: '#0d9488',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    padding: '0.35rem 0.65rem',
+                                    borderRadius: '0.375rem',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem'
+                                  }}
+                                >
+                                  <Download size={13} />
+                                  Budget (.xlsx)
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           {/* Document Content View */}
@@ -960,20 +1240,22 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
             className="card" 
             style={{ 
               width: '100%', 
-              maxWidth: '540px', 
+              maxWidth: '680px', 
+              maxHeight: '90vh',
+              overflowY: 'auto',
               margin: 0, 
-              padding: '2rem', 
+              padding: '1.75rem', 
               backgroundColor: '#0f172a', 
               border: '1px solid #38bdf8', 
               borderRadius: '1rem',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <Plus size={22} color="#38bdf8" />
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#f8fafc' }}>
-                  Buat Project Baru
+                  Buat Project Baru (Enterprise Mode)
                 </h3>
               </div>
               <button
@@ -984,9 +1266,41 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
               </button>
             </div>
 
-            <form onSubmit={handleCreateProjectSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* 1. Quick Presets Bar */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '0.4rem' }}>
+                Template Cepat (Preset Archetype):
+              </span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem' }}>
+                {PRESET_TEMPLATES.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleApplyPreset(p)}
+                    style={{
+                      padding: '0.45rem 0.6rem',
+                      borderRadius: '0.5rem',
+                      border: '1px solid #334155',
+                      backgroundColor: '#1e293b',
+                      color: '#f8fafc',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = '#38bdf8'}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = '#334155'}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateProjectSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.35rem' }}>
                   Nama Project <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <input
@@ -997,7 +1311,7 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
                   required
                   style={{
                     width: '100%',
-                    padding: '0.75rem 1rem',
+                    padding: '0.65rem 0.85rem',
                     backgroundColor: '#1e293b',
                     border: '1px solid #334155',
                     borderRadius: '0.5rem',
@@ -1009,9 +1323,27 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
-                  Tujuan & Deskripsi Project
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1' }}>
+                    Tujuan & Deskripsi Project
+                  </label>
+                  <a
+                    href={`${apiBase}/projects/template/project-spec.docx`}
+                    download="Template_Spesifikasi_Proyek.docx"
+                    style={{
+                      fontSize: '0.75rem',
+                      color: '#38bdf8',
+                      textDecoration: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                      fontWeight: 600
+                    }}
+                  >
+                    <Download size={13} />
+                    Download Form Kebutuhan (.docx)
+                  </a>
+                </div>
                 <textarea
                   rows={3}
                   placeholder="Jelaskan kebutuhan aplikasi dan fitur yang ingin dibangun oleh agent..."
@@ -1019,16 +1351,199 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
                   onChange={(e) => setNewProjDesc(e.target.value)}
                   style={{
                     width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #334155',
+                    borderRadius: '0.5rem',
+                    color: '#f8fafc',
+                    fontSize: '0.85rem',
+                    outline: 'none',
+                    resize: 'none'
+                  }}
+                />
+              </div>
+
+              {/* 2. Color Theme Selector */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                  Pilihan Tema Warna UI
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+                  {[
+                    { id: 'cyber', label: 'Cyber Slate', dot: '#38bdf8' },
+                    { id: 'emerald', label: 'Corp Emerald', dot: '#10b981' },
+                    { id: 'indigo', label: 'Modern Indigo', dot: '#818cf8' },
+                    { id: 'light', label: 'Clean Light', dot: '#f8fafc' }
+                  ].map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setNewProjTheme(t.id as any)}
+                      style={{
+                        padding: '0.5rem 0.4rem',
+                        borderRadius: '0.5rem',
+                        border: newProjTheme === t.id ? `2px solid ${t.dot}` : '1px solid #334155',
+                        backgroundColor: newProjTheme === t.id ? 'rgba(56, 189, 248, 0.15)' : '#1e293b',
+                        color: '#f8fafc',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.35rem'
+                      }}
+                    >
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: t.dot }} />
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. Tech Stack & Auth Options */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', padding: '0.75rem', backgroundColor: '#090d16', borderRadius: '0.5rem', border: '1px solid #1e293b' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={newProjIncludeAuth}
+                    onChange={(e) => setNewProjIncludeAuth(e.target.checked)}
+                    style={{ width: '15px', height: '15px', accentColor: '#0284c7' }}
+                  />
+                  <span>🔐 Sertakan JWT Auth (Login/Register)</span>
+                </label>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Storage:</span>
+                  <select
+                    value={newProjStorageType}
+                    onChange={(e) => setNewProjStorageType(e.target.value as any)}
+                    style={{ backgroundColor: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px', outline: 'none' }}
+                  >
+                    <option value="memory">In-Memory Store</option>
+                    <option value="sqlite">SQLite Database</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 4. Lampirkan Dokumen Referensi (.docx / .pdf / .txt) */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1' }}>
+                    Lampirkan Dokumen Referensi / Form Kebutuhan (.docx, .pdf, .txt)
+                  </label>
+                  <label 
+                    style={{ 
+                      fontSize: '0.75rem', 
+                      color: '#38bdf8', 
+                      cursor: 'pointer', 
+                      fontWeight: 600,
+                      backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(56, 189, 248, 0.25)'
+                    }}
+                  >
+                    + Pilih File Dokumen
+                    <input 
+                      type="file" 
+                      multiple 
+                      accept=".docx,.pdf,.txt,.md" 
+                      onChange={handleDocFileChange} 
+                      style={{ display: 'none' }} 
+                    />
+                  </label>
+                </div>
+
+                {attachedDocs.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', padding: '0.4rem', backgroundColor: '#090d16', borderRadius: '0.375rem', border: '1px solid #1e293b' }}>
+                    {attachedDocs.map((doc, idx) => (
+                      <span key={idx} style={{ fontSize: '0.75rem', padding: '2px 6px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '4px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        📄 {doc.name}
+                        <button type="button" onClick={() => handleRemoveDoc(idx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '10px' }}>✕</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
+                  Target Folder / Path (Opsional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="/mnt/d/explore/result_projek (Kosongkan untuk default)"
+                  value={newProjTargetDir}
+                  onChange={(e) => setNewProjTargetDir(e.target.value)}
+                  style={{
+                    width: '100%',
                     padding: '0.75rem 1rem',
                     backgroundColor: '#1e293b',
                     border: '1px solid #334155',
                     borderRadius: '0.5rem',
                     color: '#f8fafc',
-                    fontSize: '0.9rem',
-                    outline: 'none',
-                    resize: 'none'
+                    fontSize: '0.85rem',
+                    fontFamily: 'monospace',
+                    outline: 'none'
                   }}
                 />
+              </div>
+
+              {/* Upload Multi-Gambar per Menu / Modul */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1' }}>
+                    Upload Gambar Aset / Modul (Opsional)
+                  </label>
+                  <label 
+                    style={{ 
+                      fontSize: '0.75rem', 
+                      color: '#38bdf8', 
+                      cursor: 'pointer', 
+                      fontWeight: 600,
+                      backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(56, 189, 248, 0.25)'
+                    }}
+                  >
+                    + Pilih File Gambar
+                    <input 
+                      type="file" 
+                      multiple 
+                      accept="image/*" 
+                      onChange={handleImageFileChange} 
+                      style={{ display: 'none' }} 
+                    />
+                  </label>
+                </div>
+
+                {uploadedImages.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem', maxHeight: '180px', overflowY: 'auto', padding: '0.5rem', backgroundColor: '#090d16', borderRadius: '0.5rem', border: '1px solid #1e293b' }}>
+                    {uploadedImages.map((img, idx) => (
+                      <div key={idx} style={{ backgroundColor: '#1e293b', borderRadius: '0.5rem', padding: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', position: 'relative' }}>
+                        <div style={{ width: '100%', height: '65px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <img src={img.previewUrl} alt={img.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                        <input
+                          type="text"
+                          value={img.menuLabel}
+                          onChange={(e) => handleImageLabelChange(idx, e.target.value)}
+                          placeholder="Label Menu..."
+                          style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '3px', color: '#fff', outline: 'none' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(idx)}
+                          style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(239, 68, 68, 0.85)', color: '#fff', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>

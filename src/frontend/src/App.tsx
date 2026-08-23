@@ -56,7 +56,7 @@ export default function App() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [, setError] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState<boolean>(false);
   const [isTheaterMode, setIsTheaterMode] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d');
   
@@ -65,11 +65,15 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState<string>('');
   const [chatSending, setChatSending] = useState<boolean>(false);
-  const [selectedTargetId, setSelectedTargetId] = useState<string>('EMP-CEO'); // 'WAR_ROOM' or 'EMP-XXX'
+  const [selectedTargetId, setSelectedTargetId] = useState<string>('EMP-CEO');
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
 
-  // Idea scan loading
-  const [isScanning, setIsScanning] = useState<boolean>(false);
+  // Default drawer tertutup saat awal load agar 3D HQ tampil bersih & luas
+  const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState<boolean>(false);
+
+  const toggleActivityDrawer = () => {
+    setIsActivityDrawerOpen(prev => !prev);
+  };
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     const saved = localStorage.getItem('sidebar_collapsed');
@@ -103,9 +107,10 @@ export default function App() {
   };
   const API_BASE = getApiBase();
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchData = async (isBackground: boolean = false) => {
+    if (!isBackground) {
+      setLoading(true);
+    }
     try {
       const [companyRes, agentsRes, ideasRes, projectsRes] = await Promise.all([
         fetch(`${API_BASE}/company`).then(r => r.ok ? r.json() : null).catch(() => null),
@@ -125,7 +130,9 @@ export default function App() {
     } catch (err: any) {
       console.warn('API fetch warning:', err);
     } finally {
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   };
 
@@ -238,8 +245,15 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(false);
     fetchChat(selectedTargetId);
+    
+    // Background polling: silent refresh without unmounting UI or triggering full loading
+    const syncInterval = setInterval(() => {
+      fetchData(true);
+    }, 3000);
+
+    return () => clearInterval(syncInterval);
   }, []);
 
   useEffect(() => {
@@ -332,7 +346,7 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <div className="main-content" style={isTheaterMode ? { padding: '0.5rem', maxWidth: '100vw', width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : {}}>
+      <div className="main-content" style={isTheaterMode ? { padding: 0, margin: 0, maxWidth: '100vw', width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'fixed', inset: 0, zIndex: 9999 } : {}}>
         {!isTheaterMode && (
           <div className="header">
             <div className="header-left">
@@ -356,9 +370,9 @@ export default function App() {
               >
                 Full Screen
               </button>
-              <button onClick={fetchData} className="btn-refresh" disabled={loading}>
-                <RefreshCw size={16} className={loading ? 'spin' : ''} />
-                Sync
+              <button onClick={() => window.location.reload()} className="btn-refresh" title="Reload page to sync all state">
+                <RefreshCw size={16} />
+                Refresh
               </button>
             </div>
           </div>
@@ -375,26 +389,105 @@ export default function App() {
           <>
             {/* TAB 1: VIRTUAL OFFICE 3D */}
             {activeTab === 'office' && (
-              <div className="flex flex-col gap-4 h-full">
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '1fr 340px', 
-                  gap: '1rem', 
-                  alignItems: 'stretch',
-                  height: '540px'
-                }}>
-                  <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                    <VirtualOffice 
-                      agents={agents} 
-                      viewMode={viewMode} 
-                      onToggleViewMode={setViewMode} 
-                      onStartChatWithAgent={handleOpenChatWithAgent}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '340px', flexShrink: 0, overflow: 'hidden' }}>
+              <div style={{
+                position: 'relative',
+                width: '100%',
+                height: isTheaterMode ? '100vh' : 'calc(100vh - 160px)',
+                minHeight: isTheaterMode ? '100vh' : '650px',
+                display: 'flex',
+                overflow: 'hidden',
+                borderRadius: isTheaterMode ? 0 : '1rem',
+                border: isTheaterMode ? 'none' : '1px solid #334155'
+              }}>
+                {/* 3D Office Scene - True Full Size */}
+                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                  <VirtualOffice 
+                    agents={agents} 
+                    viewMode={viewMode} 
+                    onToggleViewMode={setViewMode} 
+                    onStartChatWithAgent={handleOpenChatWithAgent}
+                  />
+
+                  {/* Top Bar Floating Controls during Full Screen Mode */}
+                  {isTheaterMode && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '1rem',
+                      left: '1rem',
+                      zIndex: 50,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      background: 'rgba(15, 23, 42, 0.85)',
+                      backdropFilter: 'blur(8px)',
+                      padding: '0.375rem 0.75rem',
+                      borderRadius: '0.75rem',
+                      border: '1px solid rgba(51, 65, 85, 0.8)'
+                    }}>
+                      <span style={{ fontSize: '0.8125rem', fontWeight: 'bold', color: '#38bdf8' }}>🎮 VirtuLabs 3D HQ</span>
+                      <button
+                        onClick={() => setIsTheaterMode(false)}
+                        style={{
+                          background: '#dc2626',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '0.25rem 0.625rem',
+                          borderRadius: '0.5rem',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          marginLeft: '0.5rem'
+                        }}
+                      >
+                        ✕ Exit Full Screen
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Toggle Button for Activity Stream Slider */}
+                  <button
+                    onClick={toggleActivityDrawer}
+                    style={{
+                      position: 'absolute',
+                      top: '1rem',
+                      right: isActivityDrawerOpen ? '360px' : '1rem',
+                      zIndex: 50,
+                      background: 'rgba(15, 23, 42, 0.9)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1px solid #0284c7',
+                      color: '#38bdf8',
+                      padding: '0.5rem 0.875rem',
+                      borderRadius: '0.75rem',
+                      fontSize: '0.8125rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.375rem',
+                      boxShadow: '0 4px 15px rgba(0, 0, 0, 0.5)',
+                      transition: 'right 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }}
+                  >
+                    <Activity size={16} />
+                    {isActivityDrawerOpen ? '✕ Tutup Activity Feed' : '⮜ Buka Activity Feed'}
+                  </button>
+                </div>
+
+                {/* Sliding Overlay Activity Feed (Slide-in dari Kanan) */}
+                {isActivityDrawerOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    width: '350px',
+                    maxWidth: '85vw',
+                    height: '100%',
+                    zIndex: 40,
+                    boxShadow: '-10px 0 30px rgba(0, 0, 0, 0.7)'
+                  }}>
                     <LiveFeed />
                   </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -407,84 +500,184 @@ export default function App() {
 
             {/* TAB 3: IDEA RADAR */}
             {activeTab === 'ideas' && (
-              <div className="flex flex-col gap-4 max-w-4xl mx-auto w-full">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '56rem', margin: '0 auto', width: '100%' }}>
                 {/* Header Banner */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                      <Lightbulb size={20} />
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                  backgroundColor: '#0f172a',
+                  border: '1px solid #334155',
+                  padding: '1.25rem 1.5rem',
+                  borderRadius: '1rem',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{
+                      width: '2.5rem',
+                      height: '2.5rem',
+                      borderRadius: '0.75rem',
+                      backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                      border: '1px solid rgba(245, 158, 11, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fbbf24',
+                      flexShrink: 0
+                    }}>
+                      <Lightbulb size={22} />
                     </div>
                     <div>
-                      <h2 className="text-sm font-bold text-white m-0">
+                      <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc', margin: 0 }}>
                         Market Research & Idea Feed
                       </h2>
-                      <p className="text-xs text-slate-400 m-0">
-                        Pesan analisa & peluang SaaS dari Dr. Aris (Researcher)
+                      <p style={{ fontSize: '0.8125rem', color: '#94a3b8', margin: '0.25rem 0 0 0' }}>
+                        Pesan analisa & peluang SaaS divalidasi oleh Dr. Aris (Researcher)
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={handleScanIdea}
                     disabled={isScanning}
-                    className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow disabled:opacity-60 cursor-pointer flex-shrink-0"
+                    style={{
+                      backgroundColor: '#0284c7',
+                      color: '#ffffff',
+                      fontSize: '0.8125rem',
+                      fontWeight: 700,
+                      padding: '0.625rem 1.125rem',
+                      borderRadius: '0.75rem',
+                      border: 'none',
+                      cursor: isScanning ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      opacity: isScanning ? 0.6 : 1,
+                      transition: 'all 0.2s',
+                      boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)'
+                    }}
                   >
-                    <Sparkles size={14} className={isScanning ? 'animate-spin' : ''} />
+                    <Sparkles size={16} className={isScanning ? 'spin' : ''} />
                     {isScanning ? 'Scanning...' : 'Scan New Opportunity'}
                   </button>
                 </div>
 
                 {/* Ideas Message Feed */}
-                <div className="space-y-3">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {ideas.map((idea) => (
                     <div 
                       key={idea.id} 
-                      className="flex items-start gap-2.5 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-md transition hover:border-slate-700"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '0.875rem',
+                        backgroundColor: '#0f172a',
+                        border: '1px solid #334155',
+                        borderRadius: '1rem',
+                        padding: '1.25rem',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
+                      }}
                     >
-                      {/* Compact Initial Badge (No <img>, pure CSS) */}
-                      <div className="w-8 h-8 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 font-bold text-xs flex-shrink-0 mt-0.5">
-                        🔬
+                      {/* Avatar initial badge */}
+                      <div style={{
+                        width: '2.25rem',
+                        height: '2.25rem',
+                        borderRadius: '9999px',
+                        backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                        border: '1px solid #f59e0b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fbbf24',
+                        fontWeight: 800,
+                        fontSize: '0.875rem',
+                        flexShrink: 0,
+                        marginTop: '0.125rem'
+                      }}>
+                        A
                       </div>
 
                       {/* Message Body Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs text-amber-400">Dr. Aris</span>
-                            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fbbf24' }}>
+                              Dr. Aris
+                            </span>
+                            <span style={{
+                              fontSize: '0.75rem',
+                              fontFamily: 'monospace',
+                              padding: '0.125rem 0.5rem',
+                              borderRadius: '0.25rem',
+                              backgroundColor: '#1e293b',
+                              color: '#94a3b8',
+                              border: '1px solid #334155'
+                            }}>
                               Market Intelligence
                             </span>
-                            <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-500/30">
+                            <span style={{
+                              fontSize: '0.75rem',
+                              fontFamily: 'monospace',
+                              fontWeight: 700,
+                              color: '#facc15',
+                              backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                              padding: '0.125rem 0.5rem',
+                              borderRadius: '0.25rem',
+                              border: '1px solid rgba(245, 158, 11, 0.4)'
+                            }}>
                               ★ {idea.market_potential_score || 85}/100 Score
                             </span>
                           </div>
-                          <span className="text-[10px] text-slate-500 font-mono">
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace' }}>
                             Opportunity Spec
                           </span>
                         </div>
 
                         {/* Speech Bubble */}
-                        <div className="bg-slate-950/80 border border-slate-800/90 rounded-xl rounded-tl-sm p-3 mb-2.5">
-                          <h3 className="text-xs font-bold text-white mb-1 flex items-center gap-1.5">
-                            <span className="text-amber-400">💡</span> {idea.title}
+                        <div style={{
+                          backgroundColor: '#1e293b',
+                          border: '1px solid #334155',
+                          borderRadius: '1rem',
+                          borderTopLeftRadius: '0.125rem',
+                          padding: '1rem 1.125rem',
+                          marginBottom: '0.75rem'
+                        }}>
+                          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                            <span style={{ color: '#fbbf24' }}>💡</span> {idea.title}
                           </h3>
-                          <p className="text-xs text-slate-300 leading-relaxed m-0 whitespace-pre-wrap">
+                          <p style={{ fontSize: '0.875rem', color: '#e2e8f0', lineHeight: 1.6, margin: 0, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
                             {idea.problem_statement}
                           </p>
                         </div>
 
                         {/* Meta Tags & Action Button */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-                          <div className="flex items-center gap-3 text-[10px] font-mono text-slate-400">
-                            <div>Target: <span className="text-slate-200 font-semibold">{idea.target_audience || 'B2B'}</span></div>
-                            <div>Est: <span className="text-emerald-400 font-semibold">${(idea.estimated_revenue_usd || 5000).toLocaleString()}</span></div>
-                            <div>Dev: <span className="text-cyan-400 font-semibold">{idea.estimated_dev_time_mins || 5}m</span></div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', paddingTop: '0.25rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8125rem', fontFamily: 'monospace', color: '#94a3b8' }}>
+                            <div>Target: <span style={{ color: '#f8fafc', fontWeight: 600 }}>{idea.target_audience || 'B2B'}</span></div>
+                            <div>Est. Rev: <span style={{ color: '#4ade80', fontWeight: 600 }}>${(idea.estimated_revenue_usd || 5000).toLocaleString()}</span></div>
+                            <div>Build Time: <span style={{ color: '#38bdf8', fontWeight: 600 }}>{idea.estimated_dev_time_mins || 5}m</span></div>
                           </div>
 
                           <button
                             onClick={() => handleBuildIdea(idea)}
-                            className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 cursor-pointer ml-auto"
+                            style={{
+                              backgroundColor: '#0284c7',
+                              color: '#ffffff',
+                              fontWeight: 700,
+                              padding: '0.5rem 1rem',
+                              borderRadius: '0.625rem',
+                              fontSize: '0.8125rem',
+                              border: 'none',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.375rem',
+                              marginLeft: 'auto',
+                              boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)'
+                            }}
                           >
-                            <Sparkles size={12} /> Approve & Build
+                            <Sparkles size={14} /> Approve & Build
                           </button>
                         </div>
                       </div>
@@ -492,7 +685,15 @@ export default function App() {
                   ))}
 
                   {ideas.length === 0 && (
-                    <div className="p-8 text-center bg-slate-900/60 border border-slate-800 rounded-2xl text-slate-500 text-xs">
+                    <div style={{
+                      padding: '2.5rem',
+                      textAlign: 'center',
+                      backgroundColor: '#0f172a',
+                      border: '1px solid #334155',
+                      borderRadius: '1rem',
+                      color: '#94a3b8',
+                      fontSize: '0.875rem'
+                    }}>
                       Belum ada ide yang terscan. Klik tombol 'Scan New Opportunity' di atas.
                     </div>
                   )}
@@ -502,7 +703,7 @@ export default function App() {
 
             {/* TAB 4: LIVE ACTIVITY STREAM */}
             {activeTab === 'activity' && (
-              <div className="h-[calc(100vh-180px)]">
+              <div style={{ width: '100%', height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
                 <LiveFeed mode="fullscreen" />
               </div>
             )}

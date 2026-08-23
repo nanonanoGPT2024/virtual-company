@@ -54,7 +54,7 @@ export default function LiveFeed({ mode = 'widget', apiBase }: LiveFeedProps) {
 
   const fetchActivities = async () => {
     try {
-      const res = await fetch(`${getApiUrl()}/activities?limit=50`);
+      const res = await fetch(`${getApiUrl()}/activities?limit=50&sort=ASC`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -125,7 +125,7 @@ export default function LiveFeed({ mode = 'widget', apiBase }: LiveFeedProps) {
       overflow: 'hidden',
       boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
       width: mode === 'fullscreen' ? '100%' : '100%',
-      maxWidth: mode === 'fullscreen' ? '64rem' : '100%',
+      maxWidth: '100%',
       margin: mode === 'fullscreen' ? '0 auto' : '0'
     }}>
       {/* Header bar */}

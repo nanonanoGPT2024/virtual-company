@@ -58,6 +58,7 @@ app.get('/api/company', async (req, res) => {
 
 // API Routes
 app.use('/api/projects', projectsRouter);
+app.use('/api/template', projectsRouter);
 app.use('/api/agents', agentsRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/activities', activitiesRouter);

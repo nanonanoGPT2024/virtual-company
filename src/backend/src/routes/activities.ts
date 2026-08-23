@@ -5,7 +5,7 @@ const router = Router();
 
 router.get('/', async (req, res) => {
   try {
-    const { department_id, project_id, limit = 50 } = req.query;
+    const { department_id, project_id, limit = 50, sort = 'ASC' } = req.query;
     let query = `
       SELECT a.*, e.name as agent_name, e.role as agent_role, e.avatar_url as agent_avatar,
              d.name as department_name, d.code as department_code,
@@ -25,7 +25,8 @@ router.get('/', async (req, res) => {
       params.push(project_id);
     }
 
-    query += ` ORDER BY a.created_at DESC LIMIT $${params.length + 1}`;
+    const sortOrder = String(sort).toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    query += ` ORDER BY a.created_at ${sortOrder} LIMIT $${params.length + 1}`;
     params.push(limit);
 
     const result = await pool.query(query, params);

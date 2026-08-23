@@ -39,29 +39,32 @@ const DEFAULT_FALLBACK_AGENTS: Record<string, Partial<Agent>> = {
 
 // 14 stations mapped accurately to the 2D layout and PRD v2.0 roles
 const ALL_STATIONS = [
-  // Executive Suite (Left Top)
-  { id: 'ceo', empId: 'EMP-CEO', x: -14, z: -5, label: 'CEO Room', roleMatch: 'CEO', color: '#0284c7', emoji: '👑' },
-  { id: 'cfo', empId: 'EMP-CFO', x: -9, z: -5, label: 'CFO Desk', roleMatch: 'CFO', color: '#f59e0b', emoji: '📊' },
+  // Zone 1: Executive Glass Suite (Far Left Top: X: -16 to -10, Z: -6)
+  { id: 'ceo', empId: 'EMP-CEO', x: -16.5, z: -6.5, label: 'CEO Suite', roleMatch: 'CEO', color: '#0284c7', emoji: '👑' },
+  { id: 'cfo', empId: 'EMP-CFO', x: -11.5, z: -6.5, label: 'CFO Desk', roleMatch: 'CFO', color: '#f59e0b', emoji: '📊' },
   
-  // Finance & Legal (Left Bottom)
-  { id: 'legal', empId: 'EMP-LEG', x: -11.5, z: 2, label: 'Legal/Terms Desk', roleMatch: 'Legal', color: '#eab308', emoji: '⚖️' },
+  // Zone 2: Legal & Compliance (Far Left Mid: X: -14, Z: 0)
+  { id: 'legal', empId: 'EMP-LEG', x: -14, z: 0.5, label: 'Legal & Terms Desk', roleMatch: 'Legal', color: '#eab308', emoji: '⚖️' },
 
-  // Open Space - Row 1 (Top)
-  { id: 'cto', empId: 'EMP-CTO', x: -2.5, z: -5.5, label: 'CTO Desk', roleMatch: 'CTO', color: '#38bdf8', emoji: '🛠️' },
-  { id: 'cpo', empId: 'EMP-CPO', x: 2.5, z: -5.5, label: 'CPO Desk', roleMatch: 'CPO', color: '#10b981', emoji: '💡' },
-  { id: 'cmo', empId: 'EMP-MKT', x: 7.5, z: -5.5, label: 'Marketing Desk', roleMatch: 'Marketing', color: '#a855f7', emoji: '📢' },
-  { id: 'cro', empId: 'EMP-CRO', x: 12.5, z: -5.5, label: 'Sales/CRO Desk', roleMatch: 'Sales', color: '#ec4899', emoji: '🤝' },
+  // Zone 3: Main Open Workspace (Center Grid: X: -5 to +7, Z: -6 to +6)
+  // Row 1 - Engineering & Tech (Top Center)
+  { id: 'cto', empId: 'EMP-CTO', x: -5, z: -5.5, label: 'CTO Desk', roleMatch: 'CTO', color: '#38bdf8', emoji: '🛠️' },
+  { id: 'arch', empId: 'EMP-ARCH', x: 0, z: -5.5, label: 'Architect Desk', roleMatch: 'Architect', color: '#15803d', emoji: '💻' },
+  { id: 'dev', empId: 'EMP-DEV', x: 5, z: -5.5, label: 'Dev Desk', roleMatch: 'Developer', color: '#047857', emoji: '💾' },
 
-  // Open Space - Row 2 (Middle)
-  { id: 'arch', empId: 'EMP-ARCH', x: -2.5, z: -0.5, label: 'Architect Desk', roleMatch: 'Architect', color: '#15803d', emoji: '💻' },
-  { id: 'dev', empId: 'EMP-DEV', x: 2.5, z: -0.5, label: 'Dev Desk', roleMatch: 'Developer', color: '#047857', emoji: '💾' },
-  { id: 'ops', empId: 'EMP-OPS', x: 7.5, z: -0.5, label: 'DevOps Desk', roleMatch: 'DevOps', color: '#0891b2', emoji: '🚀' },
-  { id: 'qa', empId: 'EMP-QA', x: 12.5, z: -0.5, label: 'QA Desk', roleMatch: 'QA', color: '#b91c1c', emoji: '🔍' },
+  // Row 2 - Product, Design & QA (Middle Center)
+  { id: 'cpo', empId: 'EMP-CPO', x: -5, z: 0, label: 'CPO Desk', roleMatch: 'CPO', color: '#10b981', emoji: '💡' },
+  { id: 'pm', empId: 'EMP-PM', x: 0, z: 0, label: 'PM Desk', roleMatch: 'Product', color: '#6366f1', emoji: '📅' },
+  { id: 'ux', empId: 'EMP-UX', x: 5, z: 0, label: 'UX Desk', roleMatch: 'UX', color: '#f43f5e', emoji: '✏️' },
 
-  // Open Space - Row 3 (Bottom)
-  { id: 'pm', empId: 'EMP-PM', x: 2.5, z: 4.5, label: 'PM Desk', roleMatch: 'Product', color: '#6366f1', emoji: '📅' },
-  { id: 'ux', empId: 'EMP-UX', x: 7.5, z: 4.5, label: 'UX Desk', roleMatch: 'UX', color: '#f43f5e', emoji: '✏️' },
-  { id: 'research', empId: 'EMP-RES', x: 12.5, z: 4.5, label: 'Researcher Desk', roleMatch: 'Research', color: '#84cc16', emoji: '🔬' },
+  // Row 3 - Operations, Security & QA (Bottom Center)
+  { id: 'ops', empId: 'EMP-OPS', x: -5, z: 5.5, label: 'DevOps Desk', roleMatch: 'DevOps', color: '#0891b2', emoji: '🚀' },
+  { id: 'qa', empId: 'EMP-QA', x: 0, z: 5.5, label: 'QA Desk', roleMatch: 'QA', color: '#b91c1c', emoji: '🔍' },
+  { id: 'research', empId: 'EMP-RES', x: 5, z: 5.5, label: 'Researcher Desk', roleMatch: 'Research', color: '#84cc16', emoji: '🔬' },
+
+  // Growth & Commercial Suite (Top Right Transition)
+  { id: 'cmo', empId: 'EMP-MKT', x: 10, z: -5.5, label: 'Marketing Desk', roleMatch: 'Marketing', color: '#a855f7', emoji: '📢' },
+  { id: 'cro', empId: 'EMP-CRO', x: 10, z: 0, label: 'Sales / CRO Desk', roleMatch: 'Sales', color: '#ec4899', emoji: '🤝' },
 ];
 
 // Potted Plant Component
@@ -257,20 +260,195 @@ function WaterCooler({ position }: { position: [number, number, number] }) {
 }
 
 // Interactive Workstation with Dual Monitors and Roblox Avatar
+// Dedicated Character Avatar Component with Natural Animated Legs, Arms & Walking Dynamics
+function CharacterAvatar({ agent, station, isWorking, isSelected, onClick, activeColor }: any) {
+  const avatarRef = useRef<THREE.Group>(null);
+  const leftArmRef = useRef<THREE.Group>(null);
+  const rightArmRef = useRef<THREE.Group>(null);
+  const leftLegRef = useRef<THREE.Group>(null);
+  const rightLegRef = useRef<THREE.Group>(null);
+
+  // Unique deterministic idle patrol path
+  const stationHash = Math.abs(station.x * 7 + station.z * 13);
+  const idleType = Math.floor(stationHash) % 3; // 0: Hallway Patrol, 1: Lounge Sofa, 2: Pantry Break
+
+  useFrame((state) => {
+    if (!avatarRef.current) return;
+    const t = state.clock.elapsedTime;
+
+    if (isWorking) {
+      // Sitting at desk typing, facing monitor at -Z
+      avatarRef.current.position.set(station.x, Math.sin(t * 3.5) * 0.02 + 0.95, station.z + 0.48);
+      avatarRef.current.rotation.set(0, 0, 0); // facing desk at -Z
+      
+      // Arms typing towards desk
+      if (leftArmRef.current) leftArmRef.current.rotation.x = -0.5 + Math.sin(t * 8) * 0.08;
+      if (rightArmRef.current) rightArmRef.current.rotation.x = -0.5 + Math.cos(t * 8) * 0.08;
+
+      // Legs bent sitting
+      if (leftLegRef.current) leftLegRef.current.rotation.set(-Math.PI / 2, 0, 0);
+      if (rightLegRef.current) rightLegRef.current.rotation.set(-Math.PI / 2, 0, 0);
+    } else {
+      // IDLE STATES:
+      if (idleType === 0) {
+        // Natural Linear Walking Patrol (bolak-balik lurus di lorong)
+        const walkSpeed = 0.6;
+        const walkDistance = 4.0;
+        const phase = Math.sin(t * walkSpeed + stationHash);
+        const posX = station.x * 0.3 + phase * walkDistance;
+        const posZ = 1.2 + (stationHash % 2) * 1.5;
+
+        // Facing direction based on movement derivative
+        const isMovingRight = Math.cos(t * walkSpeed + stationHash) > 0;
+        const targetRotY = isMovingRight ? Math.PI / 2 : -Math.PI / 2;
+
+        avatarRef.current.position.set(posX, Math.abs(Math.sin(t * 5)) * 0.06 + 0.95, posZ);
+        avatarRef.current.rotation.set(0, targetRotY, 0);
+
+        // Natural Walking Limb Swings (Kaki & Tangan Mengayun Alami)
+        const swingSpeed = 6;
+        const swingAngle = 0.55;
+        const legSwing = Math.sin(t * swingSpeed);
+
+        if (leftLegRef.current) leftLegRef.current.rotation.x = legSwing * swingAngle;
+        if (rightLegRef.current) rightLegRef.current.rotation.x = -legSwing * swingAngle;
+        if (leftArmRef.current) leftArmRef.current.rotation.x = -legSwing * swingAngle;
+        if (rightArmRef.current) rightArmRef.current.rotation.x = legSwing * swingAngle;
+      } else if (idleType === 1) {
+        // Sitting naturally in Lounge Sofa area
+        const sofaOffset = (stationHash % 4) * 0.9 - 1.5;
+        avatarRef.current.position.set(16.5 + sofaOffset, Math.sin(t * 1.5) * 0.01 + 0.9, 5.2);
+        avatarRef.current.rotation.set(0, -Math.PI / 2, 0); // facing into room
+
+        // Relaxed limbs
+        if (leftLegRef.current) leftLegRef.current.rotation.set(-Math.PI / 2.2, 0, 0);
+        if (rightLegRef.current) rightLegRef.current.rotation.set(-Math.PI / 2.2, 0, 0);
+        if (leftArmRef.current) leftArmRef.current.rotation.set(0.1, 0, 0.2);
+        if (rightArmRef.current) rightArmRef.current.rotation.set(0.1, 0, -0.2);
+      } else {
+        // Standing at Coffee Pantry drinking / looking around
+        const pantryOffset = (stationHash % 5) * 1.2 - 2.4;
+        avatarRef.current.position.set(pantryOffset, Math.sin(t * 2) * 0.015 + 0.95, -8.2);
+        avatarRef.current.rotation.set(0, Math.PI + Math.sin(t * 0.8) * 0.3, 0); // subtle looking around
+
+        // Idle standing legs
+        if (leftLegRef.current) leftLegRef.current.rotation.set(0, 0, 0);
+        if (rightLegRef.current) rightLegRef.current.rotation.set(0, 0, 0);
+        // Arm holding mug
+        if (leftArmRef.current) leftArmRef.current.rotation.set(-0.4, 0, 0.2);
+        if (rightArmRef.current) rightArmRef.current.rotation.set(0.1, 0, -0.1);
+      }
+    }
+  });
+
+  return (
+    <group ref={avatarRef} onClick={onClick}>
+      {/* Head (Yellow Classic Roblox) */}
+      <RoundedBox args={[0.42, 0.42, 0.42]} radius={0.05} position={[0, 0.62, 0]} castShadow>
+        <meshStandardMaterial color="#fcd34d" roughness={0.3} />
+      </RoundedBox>
+
+      {/* Visor & Face (Facing Forward into -Z) */}
+      <Box args={[0.3, 0.12, 0.04]} position={[0, 0.65, -0.21]}>
+        <meshStandardMaterial color="#0f172a" />
+      </Box>
+      <Box args={[0.06, 0.06, 0.02]} position={[-0.08, 0.65, -0.23]}>
+        <meshBasicMaterial color={isWorking ? "#38bdf8" : "#fbbf24"} />
+      </Box>
+      <Box args={[0.06, 0.06, 0.02]} position={[0.08, 0.65, -0.23]}>
+        <meshBasicMaterial color={isWorking ? "#38bdf8" : "#fbbf24"} />
+      </Box>
+      <Box args={[0.14, 0.03, 0.02]} position={[0, 0.54, -0.215]}>
+        <meshBasicMaterial color="#ffffff" />
+      </Box>
+
+      {/* Front Face Features (Facing -Z) */}
+      <Box args={[0.08, 0.02, 0.02]} position={[0, 0.52, -0.22]}>
+        <meshBasicMaterial color="#d97706" />
+      </Box>
+
+      {/* Torso (Shirt) */}
+      <RoundedBox args={[0.54, 0.58, 0.32]} radius={0.05} position={[0, 0.18, 0]} castShadow>
+        <meshStandardMaterial color={activeColor} roughness={0.3} />
+      </RoundedBox>
+
+      {/* Left & Right Arms (Shoulder Pivot) */}
+      <group ref={leftArmRef} position={[-0.34, 0.38, 0]}>
+        <RoundedBox args={[0.16, 0.46, 0.16]} radius={0.03} position={[0, -0.23, 0]} castShadow>
+          <meshStandardMaterial color={activeColor} />
+        </RoundedBox>
+        <mesh position={[0, -0.46, 0]} castShadow>
+          <sphereGeometry args={[0.08, 8, 8]} />
+          <meshStandardMaterial color="#fcd34d" />
+        </mesh>
+      </group>
+
+      <group ref={rightArmRef} position={[0.34, 0.38, 0]}>
+        <RoundedBox args={[0.16, 0.46, 0.16]} radius={0.03} position={[0, -0.23, 0]} castShadow>
+          <meshStandardMaterial color={activeColor} />
+        </RoundedBox>
+        <mesh position={[0, -0.46, 0]} castShadow>
+          <sphereGeometry args={[0.08, 8, 8]} />
+          <meshStandardMaterial color="#fcd34d" />
+        </mesh>
+      </group>
+
+      {/* Left & Right Animated Legs (Hip Pivot) */}
+      <group ref={leftLegRef} position={[-0.15, -0.12, 0]}>
+        {/* Blue/Dark Pants */}
+        <RoundedBox args={[0.18, 0.48, 0.2]} radius={0.03} position={[0, -0.24, 0]} castShadow>
+          <meshStandardMaterial color="#1e293b" />
+        </RoundedBox>
+        {/* Shoes */}
+        <RoundedBox args={[0.2, 0.1, 0.26]} radius={0.02} position={[0, -0.48, -0.03]} castShadow>
+          <meshStandardMaterial color="#0f172a" />
+        </RoundedBox>
+      </group>
+
+      <group ref={rightLegRef} position={[0.15, -0.12, 0]}>
+        {/* Blue/Dark Pants */}
+        <RoundedBox args={[0.18, 0.48, 0.2]} radius={0.03} position={[0, -0.24, 0]} castShadow>
+          <meshStandardMaterial color="#1e293b" />
+        </RoundedBox>
+        {/* Shoes */}
+        <RoundedBox args={[0.2, 0.1, 0.26]} radius={0.02} position={[0, -0.48, -0.03]} castShadow>
+          <meshStandardMaterial color="#0f172a" />
+        </RoundedBox>
+      </group>
+
+      {/* Selection Aura Ring */}
+      {isSelected && (
+        <mesh position={[0, -0.52, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.45, 0.6, 32]} />
+          <meshBasicMaterial color="#38bdf8" side={THREE.DoubleSide} />
+        </mesh>
+      )}
+
+      {/* Floating Status Tag */}
+      <group position={[0, 1.08, 0]}>
+        <mesh position={[0, 0, 0]}>
+          <planeGeometry args={[(agent.name || station.label).length * 0.13 + 0.6, 0.32]} />
+          <meshBasicMaterial color="#020617" opacity={0.92} transparent />
+        </mesh>
+        <Text fontSize={0.13} color={isWorking ? "#38bdf8" : "#94a3b8"} fontWeight="bold" anchorX="center" anchorY="middle" position={[0, 0.04, 0.01]}>
+          {agent.name || station.label}
+        </Text>
+        <Text fontSize={0.09} color={isWorking ? "#4ade80" : "#fbbf24"} fontWeight="bold" anchorX="center" anchorY="middle" position={[0, -0.07, 0.01]}>
+          {isWorking ? "⚡ WORKING AT DESK" : (idleType === 0 ? "🚶 WALKING" : (idleType === 1 ? "☕ LOUNGE SOFA" : "🥤 BREAK / PANTRY"))}
+        </Text>
+      </group>
+    </group>
+  );
+}
+
+// Interactive Workstation Desk (Always stays at fixed station)
 function Workstation({ station, agent, isSelected, onClick }: any) {
   const [hovered, setHovered] = useState(false);
   useCursor(hovered, 'pointer', 'auto');
   
   const displayAgent = agent || DEFAULT_FALLBACK_AGENTS[station.id];
   const activeColor = station.color || '#0284c7';
-  
-  // Bobbing animation for seated avatar
-  const avatarRef = useRef<THREE.Group>(null);
-  useFrame((state) => {
-    if (avatarRef.current) {
-      avatarRef.current.position.y = Math.sin(state.clock.elapsedTime * 2.5 + station.x) * 0.05 + 0.95;
-    }
-  });
+  const isWorking = (displayAgent && (displayAgent.status === 'WORKING' || displayAgent.is_working));
 
   return (
     <group position={[station.x, 0, station.z]} onClick={onClick} onPointerOver={() => setHovered(true)} onPointerOut={() => setHovered(false)}>
@@ -293,102 +471,80 @@ function Workstation({ station, agent, isSelected, onClick }: any) {
       {/* Curved Ultra-Wide Main Monitor */}
       <group position={[0, 0.98, -0.32]} rotation={[0.05, 0, 0]}>
         <Box args={[1.5, 0.45, 0.03]} castShadow>
-          <meshStandardMaterial color="#334155" roughness={0.3} />
+          <meshStandardMaterial color="#1e293b" roughness={0.3} />
         </Box>
-        {/* Screen Display Face with Role Accent Glow */}
+        {/* Monitor Screen Frame */}
         <mesh position={[0, 0, 0.016]}>
           <planeGeometry args={[1.44, 0.39]} />
-          <meshBasicMaterial color={activeColor} />
+          <meshBasicMaterial color={isWorking ? "#030712" : "#0f172a"} />
         </mesh>
-        {/* Stand */}
-        <Cylinder args={[0.02, 0.02, 0.22]} position={[0, -0.22, -0.05]}><meshStandardMaterial color="#10b981" /></Cylinder>
-        <Cylinder args={[0.15, 0.15, 0.02]} position={[0, -0.33, 0]}><meshStandardMaterial color="#10b981" /></Cylinder>
+        
+        {isWorking ? (
+          <>
+            {/* Visual Content: IDE Lines & Charts when WORKING */}
+            <mesh position={[0, 0.16, 0.017]}><planeGeometry args={[1.4, 0.04]} /><meshBasicMaterial color="#1e293b" /></mesh>
+            <mesh position={[-0.64, 0.16, 0.018]}><planeGeometry args={[0.02, 0.02]} /><meshBasicMaterial color="#ef4444" /></mesh>
+            <mesh position={[-0.60, 0.16, 0.018]}><planeGeometry args={[0.02, 0.02]} /><meshBasicMaterial color="#eab308" /></mesh>
+            <mesh position={[-0.56, 0.16, 0.018]}><planeGeometry args={[0.02, 0.02]} /><meshBasicMaterial color="#22c55e" /></mesh>
+            <mesh position={[-0.2, 0.08, 0.018]}><planeGeometry args={[0.8, 0.025]} /><meshBasicMaterial color={activeColor} /></mesh>
+            <mesh position={[-0.3, 0.03, 0.018]}><planeGeometry args={[0.6, 0.02]} /><meshBasicMaterial color="#38bdf8" /></mesh>
+            <mesh position={[-0.1, -0.02, 0.018]}><planeGeometry args={[0.9, 0.02]} /><meshBasicMaterial color="#a855f7" /></mesh>
+            <mesh position={[-0.25, -0.07, 0.018]}><planeGeometry args={[0.7, 0.02]} /><meshBasicMaterial color="#34d399" /></mesh>
+            <mesh position={[0.45, -0.02, 0.018]}><planeGeometry args={[0.38, 0.22]} /><meshBasicMaterial color="#0f172a" /></mesh>
+            <mesh position={[0.45, -0.01, 0.019]}><planeGeometry args={[0.32, 0.16]} /><meshBasicMaterial color={activeColor} opacity={0.5} transparent /></mesh>
+          </>
+        ) : (
+          <>
+            {/* Standby Screensaver when IDLE */}
+            <mesh position={[0, 0, 0.018]}><planeGeometry args={[0.4, 0.12]} /><meshBasicMaterial color="#1e293b" /></mesh>
+            <Text position={[0, 0.01, 0.02]} fontSize={0.09} color="#94a3b8" fontWeight="bold" anchorX="center" anchorY="middle">
+              STANDBY
+            </Text>
+          </>
+        )}
+
+        {/* Monitor Stand */}
+        <Cylinder args={[0.02, 0.02, 0.22]} position={[0, -0.22, -0.05]}><meshStandardMaterial color="#64748b" /></Cylinder>
+        <Cylinder args={[0.15, 0.15, 0.02]} position={[0, -0.33, 0]}><meshStandardMaterial color="#475569" /></Cylinder>
       </group>
 
-      {/* Vertical Secondary Monitor on the Left */}
+      {/* Vertical Secondary Monitor with IDE & Terminal Preview */}
       <group position={[-0.95, 1.02, -0.25]} rotation={[0.05, 0.35, 0]}>
-        <Box args={[0.32, 0.55, 0.02]} castShadow><meshStandardMaterial color="#94a3b8" /></Box>
+        <Box args={[0.32, 0.55, 0.02]} castShadow><meshStandardMaterial color="#1e293b" /></Box>
         <mesh position={[0, 0, 0.011]}>
           <planeGeometry args={[0.28, 0.5]} />
-          <meshBasicMaterial color="#10b981" />
+          <meshBasicMaterial color="#020617" />
         </mesh>
+        {/* Colorful Terminal / Logs lines on vertical screen */}
+        <mesh position={[-0.08, 0.18, 0.012]}><planeGeometry args={[0.08, 0.015]} /><meshBasicMaterial color="#22c55e" /></mesh>
+        <mesh position={[0.02, 0.18, 0.012]}><planeGeometry args={[0.1, 0.015]} /><meshBasicMaterial color="#38bdf8" /></mesh>
+        <mesh position={[-0.02, 0.14, 0.012]}><planeGeometry args={[0.2, 0.012]} /><meshBasicMaterial color="#94a3b8" /></mesh>
+        <mesh position={[-0.04, 0.10, 0.012]}><planeGeometry args={[0.16, 0.012]} /><meshBasicMaterial color="#a855f7" /></mesh>
+        <mesh position={[0, 0.06, 0.012]}><planeGeometry args={[0.24, 0.012]} /><meshBasicMaterial color="#38bdf8" /></mesh>
+        <mesh position={[-0.03, 0.02, 0.012]}><planeGeometry args={[0.18, 0.012]} /><meshBasicMaterial color="#f59e0b" /></mesh>
+        <mesh position={[0, -0.02, 0.012]}><planeGeometry args={[0.22, 0.012]} /><meshBasicMaterial color="#34d399" /></mesh>
+        <mesh position={[-0.05, -0.06, 0.012]}><planeGeometry args={[0.14, 0.012]} /><meshBasicMaterial color="#64748b" /></mesh>
+        <mesh position={[0, -0.10, 0.012]}><planeGeometry args={[0.22, 0.012]} /><meshBasicMaterial color="#38bdf8" /></mesh>
+        <mesh position={[-0.02, -0.14, 0.012]}><planeGeometry args={[0.18, 0.012]} /><meshBasicMaterial color="#ec4899" /></mesh>
       </group>
 
       {/* Keyboard & Mouse */}
-      <Box args={[0.7, 0.015, 0.22]} position={[0, 0.77, 0.08]}><meshStandardMaterial color="#cbd5e1" /></Box>
-      <Box args={[0.08, 0.015, 0.12]} position={[0.55, 0.77, 0.08]}><meshStandardMaterial color="#94a3b8" /></Box>
-
-      {/* Coffee Mug with Role Color */}
+      <Box args={[0.7, 0.015, 0.22]} position={[0, 0.77, 0.08]}><meshStandardMaterial color="#334155" /></Box>
+      <Box args={[0.08, 0.015, 0.12]} position={[0.55, 0.77, 0.08]}><meshStandardMaterial color="#475569" /></Box>
       <Cylinder args={[0.045, 0.04, 0.09]} position={[-0.55, 0.81, 0.1]} castShadow>
         <meshStandardMaterial color={activeColor} />
       </Cylinder>
 
-      {/* Ergonomic Mesh Office Chair */}
+      {/* Ergonomic Office Chair */}
       <group position={[0, 0, 0.55]}>
         <RoundedBox args={[0.55, 0.08, 0.5]} radius={0.02} position={[0, 0.42, 0]} castShadow>
-          <meshStandardMaterial color="#e2e8f0" />
+          <meshStandardMaterial color="#1e293b" />
         </RoundedBox>
-        <RoundedBox args={[0.5, 0.55, 0.08]} radius={0.02} position={[0, 0.7, 0.22]} castShadow>
-          <meshStandardMaterial color="#94a3b8" />
+        <RoundedBox args={[0.5, 0.55, 0.08]} radius={0.02} position={[0, 0.7, 0.24]} castShadow>
+          <meshStandardMaterial color="#334155" />
         </RoundedBox>
-        {/* Chair Base & Wheel Hub */}
-        <Cylinder args={[0.04, 0.04, 0.4]} position={[0, 0.2, 0]}><meshStandardMaterial color="#10b981" /></Cylinder>
-        <Cylinder args={[0.25, 0.25, 0.03, 5]} position={[0, 0.02, 0]}><meshStandardMaterial color="#cbd5e1" /></Cylinder>
-      </group>
-
-      {/* Roblox-Style Character (Guaranteed Always Rendered) */}
-      <group ref={avatarRef} position={[0, 0.95, 0.5]}>
-        {/* Head (Yellow Classic Roblox) */}
-        <RoundedBox args={[0.42, 0.42, 0.42]} radius={0.05} position={[0, 0.62, 0]} castShadow>
-          <meshStandardMaterial color="#fcd34d" roughness={0.3} />
-        </RoundedBox>
-        {/* Head Front Face Eyes/Smile */}
-        <mesh position={[0, 0.62, 0.215]}>
-          <planeGeometry args={[0.3, 0.2]} />
-          <meshBasicMaterial color="#0f172a" />
-        </mesh>
-        <mesh position={[-0.08, 0.66, 0.22]}>
-          <planeGeometry args={[0.05, 0.05]} />
-          <meshBasicMaterial color="#ffffff" />
-        </mesh>
-        <mesh position={[0.08, 0.66, 0.22]}>
-          <planeGeometry args={[0.05, 0.05]} />
-          <meshBasicMaterial color="#ffffff" />
-        </mesh>
-
-        {/* Torso (Brightly Colored to Agent Role) */}
-        <RoundedBox args={[0.54, 0.58, 0.32]} radius={0.05} position={[0, 0.18, 0]} castShadow>
-          <meshStandardMaterial color={activeColor} roughness={0.3} />
-        </RoundedBox>
-
-        {/* Left & Right Arms resting forward toward keyboard */}
-        <RoundedBox args={[0.18, 0.46, 0.18]} radius={0.04} position={[-0.36, 0.18, -0.1]} rotation={[0.4, 0, 0.1]} castShadow>
-          <meshStandardMaterial color={activeColor} />
-        </RoundedBox>
-        <RoundedBox args={[0.18, 0.46, 0.18]} radius={0.04} position={[0.36, 0.18, -0.1]} rotation={[0.4, 0, -0.1]} castShadow>
-          <meshStandardMaterial color={activeColor} />
-        </RoundedBox>
-
-        {/* Hands (Yellow Roblox) */}
-        <mesh position={[-0.38, -0.02, -0.22]} castShadow>
-          <sphereGeometry args={[0.08, 8, 8]} />
-          <meshStandardMaterial color="#fcd34d" />
-        </mesh>
-        <mesh position={[0.38, -0.02, -0.22]} castShadow>
-          <sphereGeometry args={[0.08, 8, 8]} />
-          <meshStandardMaterial color="#fcd34d" />
-        </mesh>
-
-        {/* Floating Agent Name Tag */}
-        <group position={[0, 1.05, 0]}>
-          <mesh position={[0, 0, -0.01]}>
-            <planeGeometry args={[(displayAgent.name || station.label).length * 0.13 + 0.4, 0.28]} />
-            <meshBasicMaterial color="#020617" opacity={0.9} transparent />
-          </mesh>
-          <Text fontSize={0.14} color="#38bdf8" fontWeight="bold" anchorX="center" anchorY="middle">
-            {displayAgent.name || station.label}
-          </Text>
-        </group>
+        <Cylinder args={[0.04, 0.04, 0.4]} position={[0, 0.2, 0]}><meshStandardMaterial color="#475569" /></Cylinder>
+        <Cylinder args={[0.25, 0.25, 0.03, 5]} position={[0, 0.02, 0]}><meshStandardMaterial color="#0f172a" /></Cylinder>
       </group>
 
       {/* Desk Title Sign */}
@@ -396,30 +552,39 @@ function Workstation({ station, agent, isSelected, onClick }: any) {
         {station.label}
       </Text>
 
-      {/* Floor Spotlight Highlight when Hovered or Selected */}
-      {(hovered || isSelected) && (
+      {/* Floor Spotlight Highlight */}
+      {(hovered || isSelected || isWorking) && (
         <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[2.8, 2.2]} />
-          <meshBasicMaterial color={activeColor} opacity={0.35} transparent />
+          <meshBasicMaterial color={activeColor} opacity={isWorking ? 0.35 : 0.15} transparent />
         </mesh>
       )}
+
+      {/* Render the Avatar for this Station */}
+      <CharacterAvatar 
+        agent={displayAgent}
+        station={station}
+        isWorking={isWorking}
+        isSelected={isSelected}
+        onClick={onClick}
+        activeColor={activeColor}
+      />
     </group>
   );
 }
 
-// Complete Room with Floor Tiles, Transparent Walls, and Office Zones
 function FullOfficeEnvironment() {
   return (
     <group>
       {/* 1. Main Office Floor (Bright slate blue-grey) */}
-      <Plane args={[38, 22]} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+      <Plane args={[48, 26]} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <meshStandardMaterial color="#d6870f" roughness={0.5} />
       </Plane>
       {/* Grid Floor Pattern */}
-      <gridHelper args={[38, 38, '#b45309', '#eab308']} position={[0, 0.01, 0]} />
+      <gridHelper args={[48, 26, '#b45309', '#eab308']} position={[0, 0.01, 0]} />
 
       {/* 2. Executive Suite Glass Room (Left Top) */}
-      <group position={[-11.5, 0, -5]}>
+      <group position={[-14, 0, -6.5]}>
         {/* Soft Blue Luxury Carpet */}
         <RoundedBox args={[11, 0.02, 7.5]} radius={0.2} position={[0, 0.015, 0]} receiveShadow>
           <meshStandardMaterial color="#0284c7" opacity={0.14} transparent />
@@ -451,7 +616,7 @@ function FullOfficeEnvironment() {
       </group>
 
       {/* 3. Recreation & Ping Pong Zone (Left Bottom) */}
-      <group position={[-11.5, 0, 5.5]}>
+      <group position={[-14, 0, 7.5]}>
         <RoundedBox args={[11, 0.02, 6.5]} radius={0.2} position={[0, 0.015, 0]} receiveShadow>
           <meshStandardMaterial color="#475569" opacity={0.1} transparent />
         </RoundedBox>
@@ -462,7 +627,7 @@ function FullOfficeEnvironment() {
       </group>
 
       {/* 4. Conference Boardroom (Right Top) */}
-      <group position={[10, 0, -5]}>
+      <group position={[17, 0, -5]}>
         <BoardroomArea position={[0, 0, 0]} />
         <Text position={[-2.8, 0.03, -3.2]} rotation={[-Math.PI/2, 0, 0]} fontSize={0.22} color="#38bdf8" fontWeight="bold">
           CONFERENCE BOARDROOM
@@ -470,7 +635,7 @@ function FullOfficeEnvironment() {
       </group>
 
       {/* 5. Lounge & Breakout Area (Right Bottom) */}
-      <group position={[10, 0, 5.5]}>
+      <group position={[17, 0, 5.5]}>
         <LoungeArea position={[0, 0, 0]} />
         <Text position={[-2.8, 0.03, -2.8]} rotation={[-Math.PI/2, 0, 0]} fontSize={0.22} color="#334155" fontWeight="bold">
           LOUNGE & BREAKOUT ZONE
@@ -478,7 +643,7 @@ function FullOfficeEnvironment() {
       </group>
 
       {/* 6. Coffee Bar & Pantry */}
-      <CoffeeBar position={[-0.5, 0, -8.5]} />
+      <CoffeeBar position={[0, 0, -10.5]} />
       <Text position={[-0.5, 1.7, -8.5]} fontSize={0.2} color="#94a3b8" fontWeight="bold" anchorX="center">
         ☕ Coffee Bar & Pantry
       </Text>
@@ -565,48 +730,90 @@ export default function ThreeDOffice({ agents, onStartChatWithAgent }: VirtualOf
         />
       </Canvas>
 
-      {/* Selected Agent Quick Inspector Card */}
+      {/* Selected Agent Live Inspector & Command Card */}
       {selectedAgent && (
         <div style={{
           position: 'absolute',
-          bottom: '20px',
-          left: '20px',
-          background: 'rgba(15, 23, 42, 0.92)',
-          backdropFilter: 'blur(12px)',
+          bottom: '24px',
+          left: '24px',
+          background: 'rgba(15, 23, 42, 0.94)',
+          backdropFilter: 'blur(16px)',
           border: '1px solid #38bdf8',
-          padding: '16px 20px',
-          borderRadius: '12px',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)',
-          zIndex: 35,
-          maxWidth: '320px'
+          padding: '1.25rem',
+          borderRadius: '1rem',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 20px rgba(56, 189, 248, 0.25)',
+          zIndex: 40,
+          width: '340px',
+          fontFamily: 'Inter, sans-serif'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#f8fafc', fontWeight: 'bold' }}>{selectedAgent.name}</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: (selectedAgent as any).status === 'WORKING' ? '#22c55e' : '#f59e0b', boxShadow: `0 0 8px ${(selectedAgent as any).status === 'WORKING' ? '#22c55e' : '#f59e0b'}` }} />
+              <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#f8fafc', fontWeight: 800 }}>{selectedAgent.name}</h3>
+            </div>
             <button 
               onClick={() => setSelectedAgentId(null)}
-              style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.3rem', lineHeight: 1 }}
+              style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.4rem', lineHeight: 1 }}
             >
               &times;
             </button>
           </div>
-          <div style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 600, marginBottom: '6px' }}>
+
+          <div style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 600, marginBottom: '0.75rem' }}>
             {selectedAgent.title}
           </div>
-          <div style={{ fontSize: '0.8rem', color: '#cbd5e1', display: 'flex', gap: '8px', marginBottom: '12px' }}>
-            <span>ID: <code style={{ color: '#94a3b8' }}>{selectedAgent.id}</code></span>
-            <span>&bull;</span>
-            <span>Autonomy: <strong style={{ color: '#22c55e' }}>Lv. {selectedAgent.autonomy_level}</strong></span>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', backgroundColor: '#090d16', padding: '0.65rem 0.85rem', borderRadius: '0.5rem', border: '1px solid #1e293b', marginBottom: '0.85rem', fontSize: '0.75rem' }}>
+            <div>
+              <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>STATUS LIVE</span>
+              <strong style={{ color: (selectedAgent as any).status === 'WORKING' ? '#34d399' : '#fbbf24' }}>
+                {(selectedAgent as any).status === 'WORKING' ? '⚡ Sedang Bertugas' : '💤 Standby / Idle'}
+              </strong>
+            </div>
+            <div>
+              <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>BIAYA AI HARI INI</span>
+              <strong style={{ color: '#38bdf8' }}>
+                ${parseFloat((selectedAgent as any).ai_cost_used_today || '0.00').toFixed(4)}
+              </strong>
+            </div>
+            <div>
+              <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>AGENT ID</span>
+              <code style={{ color: '#cbd5e1' }}>{selectedAgent.id}</code>
+            </div>
+            <div>
+              <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>AUTONOMI</span>
+              <strong style={{ color: '#a855f7' }}>Level {selectedAgent.autonomy_level || 4} / 5</strong>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button 
               onClick={() => {
                 if (selectedAgent && onStartChatWithAgent) {
                   onStartChatWithAgent(selectedAgent);
                 }
               }}
-              style={{ flex: 1, padding: '8px 14px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              style={{
+                flex: 1,
+                padding: '0.65rem 1rem',
+                background: 'linear-gradient(to right, #0284c7, #4f46e5)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '0.6rem',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.4)',
+                transition: 'all 0.15s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
             >
-              💬 Chat With {selectedAgent.name}
+              ⚡ Tugaskan / Chat Cepat
             </button>
           </div>
         </div>
