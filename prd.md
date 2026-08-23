@@ -1,11 +1,11 @@
-# Product Requirements Document (PRD) — v2.2
+# Product Requirements Document (PRD) — v2.3
 # AI Virtual Company OS — Autonomous Software & Product Studio
 
 | Attribute | Details |
 | :--- | :--- |
 | **Product Name** | AI Virtual Company OS |
-| **Version** | 2.2 (Multi-User Public Access, User-Centric RBAC & Owner Oversight) |
-| **Status** | Approved by Owner / In Implementation |
+| **Version** | 2.3 (One-Click Public Tunnel, AI Spec Enrichment & Autonomous Alerts) |
+| **Status** | Approved by Owner / Fully Implemented |
 | **Product Type** | AI-Native Autonomous Software & Product Studio OS |
 | **Owner / Root** | Human Founder / Root Owner (Nano) |
 
@@ -15,29 +15,22 @@
 
 **AI Virtual Company OS** adalah platform sistem operasi perusahaan virtual otonom. Platform ini mengorkestrasi agen-agen AI dengan struktur organisasi lengkap untuk memproduksi aplikasi/software nyata secara end-to-end dengan isolasi proyek mandiri (`/projects/{slug}/`).
 
-### Pembaruan UI/UX Navigasi & Komunikasi (v2.1):
-1. **Pembersihan Sidebar Navigasi:**
-   - Tab "Company Chat" di sidebar samping **dihilangkan**.
-   - Sidebar kini ramping dan fokus pada menu utama:
-     * 🏢 **Virtual Office 3D**
-     * 🚀 **Project Pipeline Hub**
-     * 💡 **Idea Radar**
-     * ⚡ **Live Activity Stream**
-     * 💰 **Financial Analytics**
-     * 👥 **User Management Hub (Khusus Owner)**
-2. **Floating Message Bubble (Pojok Kanan Bawah):**
-   - Komponen floating chat widget melayang di pojok kanan bawah layar (`bottom-6 right-6`).
-   - Saat diklik, membuka pop-up drawer percakapan chat modern.
-   - **Default Chat:** Terhubung langsung ke **Chief Aura (CEO)** untuk diskusi strategis.
-   - Dilengkapi dropdown/selector untuk berpindah ke **Executive War Room** atau 14 agen virtual lainnya.
-3. **Direct 3D Agent Click-to-Chat Interaction:**
-   - Di tampilan **Virtual Office 3D & 2D**, Owner dapat mengklik meja / karakter agen mana pun.
-   - Pop-up quick inspector muncul dengan tombol **"💬 Chat With [Nama Agen]"**.
-   - Mengklik tombol tersebut akan langsung membuka Floating Chat Bubble dan mengalihkan percakapan 1-on-1 dengan agen tersebut secara instan.
-4. **Project Lifecycle Management — Fitur Hapus Project & ZIP Export:**
-   - Mendukung penghapusan project secara menyeluruh (hard delete & cleanup) baik dari dashboard UI maupun REST API (`DELETE /api/projects/:id`).
-   - Mendukung ekspor seluruh direktori project (source code `src/` & dokumen `docs/`) ke dalam arsip bundle **`.ZIP`** (`GET /api/projects/:id/download-zip`).
-   - Dokumen deliverables resmi tersedia dalam format Microsoft Word (`.docx`) dan Microsoft Excel (`.xlsx`).
+### Pembaruan Fitur & UX Terkini (v2.3):
+1. **⚡ One-Click Instant Public Tunnel per Project:**
+   - Menyediakan tombol *Share Public Link* / *Buka Tunnel Publik* langsung di kartu project dan pipeline.
+   - Endpoint `POST /api/projects/:id/tunnel/start` & `stop` memfasilitasi pembuatan link HTTPS publik instan via reverse tunnel background (`*.lhr.life`).
+   - Klien maupun Owner dapat membagikan link live demo aplikasi yang baru selesai di-deploy ke pihak eksternal tanpa konfigurasi port forwarding manual.
+2. **🧠 Interactive PRD Auto-Enrichment & Spec Builder:**
+   - Tombol *✨ Auto-Enrich AI Spec* pada modal pembuatan project baru.
+   - Menggunakan LLM latensi rendah (`ag/gemini-3.7-flash-low`) via endpoint `POST /api/projects/enrich-spec` untuk secara instan menyusun:
+     * Nama aplikasi & ringkasan arsitektur profesional.
+     * Pilihan tema warna UI rekomendasi.
+     * Skema database awal (tabel & relasi field).
+     * Modul & fitur kunci yang bisa dicentang langsung oleh pengguna sebelum pipeline dimulai.
+3. **🔔 Autonomous Stage Audio & Smart Toast Notification:**
+   - Sintesis audio bawaan (*Web Audio API*) menghasilkan soft chime berfrekuensi ganda (D5/A5) saat pengerjaan berpindah divisi (PRD $\to$ Koding $\to$ QA $\to$ Deploy).
+   - Smart Toast Notification di sudut layar menyajikan update real-time progress agen.
+   - Dilengkapi toggle *🔔 Sound: ON/OFF* di header atas yang tersimpan di `localStorage`.
 
 ---
 
