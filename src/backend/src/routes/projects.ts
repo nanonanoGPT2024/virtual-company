@@ -1,16 +1,177 @@
 import path from 'path';
 import fs from 'fs';
 import { Router } from 'express';
+import { spawn, ChildProcess } from 'child_process';
 import { pool } from '../config/db';
 import { runProjectPipeline } from '../services/projectPipeline';
 import { logActivity } from '../services/activityService';
 import { generateProjectSpecTemplateDocx } from '../services/docExportService';
+import { callAgentLLM } from '../services/llmService';
 import { authenticateUser } from './auth';
 import { exec } from 'child_process';
 import util from 'util';
 
 const execPromise = util.promisify(exec);
 const router = Router();
+
+// In-Memory active tunnel processes map { [projectId]: ChildProcess }
+const activeTunnels: Record<string, ChildProcess> = {};
+
+// 1. POST /api/projects/enrich-spec (Interactive PRD Auto-Enrichment & Spec Builder)
+router.post('/enrich-spec', authenticateUser, async (req, res) => {
+  try {
+    const { title, description } = req.body;
+    if (!title && !description) {
+      return res.status(400).json({ error: 'Title atau deskripsi ide diperlukan' });
+    }
+
+    const prompt = `Kamu adalah Chief Product & Technical Architect di software studio kelas dunia.
+Berdasarkan ide aplikasi berikut:
+Judul: ${title || 'Aplikasi Baru'}
+Deskripsi: ${description || title}
+
+Tolong perkaya spesifikasi kebutuhan aplikasi ini menjadi format JSON murni (tanpa penjelasan markdown di luar JSON) dengan struktur persis:
+{
+  "refinedTitle": "Nama Aplikasi yang profesional dan menarik",
+  "refinedDescription": "Deskripsi singkat yang berfokus pada solusi masalah dan arsitektur (1-2 paragraf)",
+  "recommendedTheme": "cyber" | "emerald" | "indigo" | "light",
+  "keyFeatures": [
+    "Fitur 1 dengan deskripsi ringkas",
+    "Fitur 2 dengan deskripsi ringkas",
+    "Fitur 3 dengan deskripsi ringkas",
+    "Fitur 4 dengan deskripsi ringkas",
+    "Fitur 5 dengan deskripsi ringkas"
+  ],
+  "suggestedModules": [
+    "Modul 1 (contoh: Dashboard)",
+    "Modul 2 (contoh: Master Data)",
+    "Modul 3 (contoh: Transaksi / Logika)",
+    "Modul 4 (contoh: Laporan / Analytics)"
+  ],
+  "databaseSchema": [
+    { "table": "users", "fields": ["id", "username", "role", "created_at"] },
+    { "table": "items", "fields": ["id", "title", "status", "created_at"] }
+  ]
+}`;
+
+    const llmRes = await callAgentLLM('EMP-PM', 'Kamu adalah AI Product Architect. Selalu output JSON valid.', prompt);
+    let enrichedData: any = null;
+    try {
+      const match = llmRes.content.match(/\{[\s\S]*\}/);
+      if (match) {
+        enrichedData = JSON.parse(match[0]);
+      }
+    } catch (parseErr) {
+      console.warn('[Enrich Spec JSON Parse Warning]:', parseErr);
+    }
+
+    if (!enrichedData) {
+      enrichedData = {
+        refinedTitle: title || 'SaaS Application',
+        refinedDescription: description || 'Aplikasi otomatis berbasis arsitektur Express dan Tailwind CSS.',
+        recommendedTheme: 'cyber',
+        keyFeatures: [
+          'Interactive Data Management & CRUD',
+          'Live Activity Stream & Dashboard Analytics',
+          'Responsive Dark/Light Visual Interface',
+          'Export & Reporting Documentation'
+        ],
+        suggestedModules: ['Dashboard', 'Data Table', 'Analytics', 'Settings'],
+        databaseSchema: [
+          { table: 'items', fields: ['id', 'title', 'description', 'status', 'created_at'] }
+        ]
+      };
+    }
+
+    res.json({ success: true, data: enrichedData });
+  } catch (error: any) {
+    console.error('Error enriching spec:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 2. POST /api/projects/:id/tunnel/start (One-Click Instant Public Tunnel)
+router.post('/:id/tunnel/start', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
+    if (projRes.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
+    const project = projRes.rows[0];
+    const port = project.port || 5001;
+
+    // Check if existing tunnel process is still active
+    if (activeTunnels[id]) {
+      try {
+        activeTunnels[id].kill('SIGTERM');
+        delete activeTunnels[id];
+      } catch (_) {}
+    }
+
+    let tunnelUrl = '';
+    // Launch localhost.run SSH tunnel in background
+    const tunnelProcess = spawn('ssh', [
+      '-o', 'StrictHostKeyChecking=no',
+      '-o', 'ServerAliveInterval=30',
+      '-R', `80:localhost:${port}`,
+      'nokey@localhost.run'
+    ]);
+
+    activeTunnels[id] = tunnelProcess;
+
+    const timeoutPromise = new Promise<string>((resolve) => {
+      const timer = setTimeout(() => resolve(''), 8000);
+
+      const captureUrl = (data: Buffer) => {
+        const text = data.toString();
+        const match = text.match(/https:\/\/[a-zA-Z0-9.-]+\.lhr\.life|https:\/\/[a-zA-Z0-9.-]+\.localhost\.run/i);
+        if (match && match[0]) {
+          clearTimeout(timer);
+          resolve(match[0]);
+        }
+      };
+
+      tunnelProcess.stdout.on('data', captureUrl);
+      tunnelProcess.stderr.on('data', captureUrl);
+    });
+
+    tunnelUrl = await timeoutPromise;
+
+    // Fallback if localhost.run output delayed or rate-limited
+    if (!tunnelUrl) {
+      tunnelUrl = `http://${req.hostname || 'localhost'}:${port}`;
+    }
+
+    await pool.query('UPDATE projects SET tunnel_url = $1 WHERE id = $2', [tunnelUrl, id]);
+
+    res.json({
+      success: true,
+      message: 'Tunnel public URL active',
+      tunnel_url: tunnelUrl,
+      project_id: id,
+      port
+    });
+  } catch (error: any) {
+    console.error('Error starting tunnel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 3. POST /api/projects/:id/tunnel/stop (Stop Public Tunnel)
+router.post('/:id/tunnel/stop', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (activeTunnels[id]) {
+      try {
+        activeTunnels[id].kill('SIGTERM');
+      } catch (_) {}
+      delete activeTunnels[id];
+    }
+    await pool.query('UPDATE projects SET tunnel_url = NULL WHERE id = $1', [id]);
+    res.json({ success: true, message: 'Tunnel stopped successfully', project_id: id });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Download Project Specification Template (.docx) for users to fill in requirements
 router.get('/template/project-spec.docx', async (req, res) => {

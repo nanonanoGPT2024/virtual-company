@@ -13,7 +13,12 @@ import {
   Plus,
   Rocket,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Globe,
+  Sparkles,
+  ExternalLink,
+  Copy,
+  CheckCheck
 } from 'lucide-react';
 import type { ProjectItem, ProjectDocument } from './ProjectTimeline';
 
@@ -152,6 +157,78 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
   const [uploadedImages, setUploadedImages] = useState<Array<{ name: string; menuLabel: string; base64: string; mimeType: string; previewUrl: string }>>([]);
   const [attachedDocs, setAttachedDocs] = useState<Array<{ name: string; base64: string }>>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // AI Auto-Enrich Spec State
+  const [isEnriching, setIsEnriching] = useState<boolean>(false);
+  const [enrichedSpecData, setEnrichedSpecData] = useState<any | null>(null);
+
+  // Public Tunnel State
+  const [tunnelLoadingId, setTunnelLoadingId] = useState<string | null>(null);
+  const [copiedTunnelId, setCopiedTunnelId] = useState<string | null>(null);
+
+  const handleAutoEnrichSpec = async () => {
+    if (!newProjName.trim() && !newProjDesc.trim()) {
+      alert('Ketikkan nama atau deskripsi ide singkat terlebih dahulu untuk dianalisis oleh AI.');
+      return;
+    }
+    setIsEnriching(true);
+    try {
+      const token = localStorage.getItem('company_os_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${apiBase}/projects/enrich-spec`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          title: newProjName,
+          description: newProjDesc
+        })
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const d = json.data;
+        setEnrichedSpecData(d);
+        if (d.refinedTitle) setNewProjName(d.refinedTitle);
+        if (d.refinedDescription) setNewProjDesc(d.refinedDescription);
+        if (d.recommendedTheme) setNewProjTheme(d.recommendedTheme);
+      }
+    } catch (err) {
+      console.error('Enrich spec error:', err);
+    } finally {
+      setIsEnriching(false);
+    }
+  };
+
+  const handleToggleTunnel = async (project: ProjectItem) => {
+    setTunnelLoadingId(project.id);
+    const isRunning = Boolean(project.tunnel_url);
+    const endpoint = isRunning ? `${apiBase}/projects/${project.id}/tunnel/stop` : `${apiBase}/projects/${project.id}/tunnel/start`;
+    
+    try {
+      const token = localStorage.getItem('company_os_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(endpoint, { method: 'POST', headers });
+      const data = await res.json();
+      if (res.ok) {
+        if (onProjectCreated) onProjectCreated();
+      } else {
+        alert(data.error || 'Gagal mengatur tunnel publik');
+      }
+    } catch (e: any) {
+      alert('Error tunnel: ' + e.message);
+    } finally {
+      setTunnelLoadingId(null);
+    }
+  };
+
+  const handleCopyTunnelUrl = (url: string, projId: string) => {
+    navigator.clipboard.writeText(url);
+    setCopiedTunnelId(projId);
+    setTimeout(() => setCopiedTunnelId(null), 2500);
+  };
 
   // Preset Archetypes
   const PRESET_TEMPLATES = [
@@ -572,9 +649,67 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
                     <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#f8fafc', margin: '0 0 0.5rem 0' }}>
                       {project.name}
                     </h3>
-                    <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 1.25rem 0', lineHeight: 1.45 }}>
+                    <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 0.75rem 0', lineHeight: 1.45 }}>
                       {project.description || 'Tidak ada deskripsi project.'}
                     </p>
+
+                    {/* Instant Public Tunnel Badge / Action on Card */}
+                    <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {project.tunnel_url ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', backgroundColor: 'rgba(52, 211, 153, 0.12)', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#34d399', animation: 'pulse 1.5s infinite' }} />
+                          <span style={{ color: '#34d399', fontWeight: 700 }}>TUNNEL LIVE:</span>
+                          <a 
+                            href={project.tunnel_url} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            onClick={e => e.stopPropagation()} 
+                            style={{ color: '#38bdf8', textDecoration: 'underline', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}
+                          >
+                            {project.tunnel_url.replace(/^https?:\/\//, '')}
+                            <ExternalLink size={11} />
+                          </a>
+                          <button
+                            title="Copy Public Link"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyTunnelUrl(project.tunnel_url!, project.id);
+                            }}
+                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                          >
+                            {copiedTunnelId === project.id ? <CheckCheck size={13} color="#34d399" /> : <Copy size={13} />}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={tunnelLoadingId === project.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleTunnel(project);
+                          }}
+                          style={{
+                            background: 'rgba(56, 189, 248, 0.1)',
+                            border: '1px solid rgba(56, 189, 248, 0.25)',
+                            color: '#38bdf8',
+                            borderRadius: '6px',
+                            padding: '3px 8px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.15s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.2)'}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'}
+                        >
+                          <Globe size={13} />
+                          {tunnelLoadingId === project.id ? 'Menghubungkan Tunnel...' : '⚡ Buka Tunnel Publik'}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Division Status Badge & Progress */}
@@ -689,7 +824,63 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* Instant Public Tunnel Toggle Button on Detail View */}
+                {selectedProject.tunnel_url ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(52, 211, 153, 0.15)', border: '1px solid rgba(52, 211, 153, 0.35)', padding: '0.4rem 0.8rem', borderRadius: '0.5rem', fontSize: '0.8rem' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#34d399', animation: 'pulse 1.5s infinite' }} />
+                    <span style={{ color: '#34d399', fontWeight: 700 }}>TUNNEL:</span>
+                    <a 
+                      href={selectedProject.tunnel_url} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      style={{ color: '#38bdf8', textDecoration: 'underline', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}
+                    >
+                      {selectedProject.tunnel_url.replace(/^https?:\/\//, '')}
+                      <ExternalLink size={12} />
+                    </a>
+                    <button
+                      title="Copy Public Link"
+                      onClick={() => handleCopyTunnelUrl(selectedProject.tunnel_url!, selectedProject.id)}
+                      style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px', marginLeft: '4px' }}
+                    >
+                      {copiedTunnelId === selectedProject.id ? <CheckCheck size={14} color="#34d399" /> : <Copy size={14} />}
+                    </button>
+                    <button
+                      onClick={() => handleToggleTunnel(selectedProject)}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '11px', fontWeight: 600, marginLeft: '6px' }}
+                    >
+                      (Stop)
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={tunnelLoadingId === selectedProject.id}
+                    onClick={() => handleToggleTunnel(selectedProject)}
+                    style={{
+                      backgroundColor: '#10b981',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '0.5rem 0.9rem',
+                      borderRadius: '0.5rem',
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      boxShadow: '0 2px 4px rgba(16, 185, 129, 0.35)',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+                  >
+                    <Globe size={15} />
+                    {tunnelLoadingId === selectedProject.id ? 'Menghubungkan...' : '⚡ Buka Tunnel Publik'}
+                  </button>
+                )}
+
                 <button
                   title="Download Seluruh Project (.ZIP)"
                   onClick={() => {
@@ -1333,26 +1524,53 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
                   <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#cbd5e1' }}>
                     Tujuan & Deskripsi Project
                   </label>
-                  <a
-                    href={`${apiBase}/projects/template/project-spec.docx`}
-                    download="Template_Spesifikasi_Proyek.docx"
-                    style={{
-                      fontSize: '0.75rem',
-                      color: '#38bdf8',
-                      textDecoration: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.3rem',
-                      fontWeight: 600
-                    }}
-                  >
-                    <Download size={13} />
-                    Download Form Kebutuhan (.docx)
-                  </a>
+                  <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      disabled={isEnriching}
+                      onClick={handleAutoEnrichSpec}
+                      style={{
+                        padding: '3px 8px',
+                        backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                        color: '#38bdf8',
+                        border: '1px solid rgba(56, 189, 248, 0.35)',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        cursor: isEnriching ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#0284c7'}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.15)'}
+                    >
+                      <Sparkles size={12} className={isEnriching ? 'spin' : ''} />
+                      {isEnriching ? 'Menganalisis...' : '✨ Auto-Enrich AI Spec'}
+                    </button>
+
+                    <a
+                      href={`${apiBase}/projects/template/project-spec.docx`}
+                      download="Template_Spesifikasi_Proyek.docx"
+                      style={{
+                        fontSize: '0.75rem',
+                        color: '#94a3b8',
+                        textDecoration: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        fontWeight: 600
+                      }}
+                    >
+                      <Download size={12} />
+                      Form (.docx)
+                    </a>
+                  </div>
                 </div>
                 <textarea
                   rows={3}
-                  placeholder="Jelaskan kebutuhan aplikasi dan fitur yang ingin dibangun oleh agent..."
+                  placeholder="Jelaskan ide/fitur aplikasi atau ketik singkat lalu klik '✨ Auto-Enrich AI Spec'..."
                   value={newProjDesc}
                   onChange={(e) => setNewProjDesc(e.target.value)}
                   style={{
@@ -1367,6 +1585,35 @@ export default function ProjectPipeline({ projects, onProjectCreated, apiBase = 
                     resize: 'none'
                   }}
                 />
+
+                {/* Enriched Spec Interactive Preview */}
+                {enrichedSpecData && (
+                  <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#090d16', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '0.5rem', fontSize: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#38bdf8', fontWeight: 700, marginBottom: '0.35rem' }}>
+                      <Sparkles size={13} />
+                      <span>Hasil Analisis Arsitektur AI:</span>
+                    </div>
+                    {enrichedSpecData.keyFeatures && (
+                      <div style={{ marginBottom: '0.4rem' }}>
+                        <span style={{ color: '#94a3b8', fontWeight: 600 }}>Fitur Utama:</span>
+                        <ul style={{ margin: '0.2rem 0 0 1rem', padding: 0, color: '#cbd5e1' }}>
+                          {enrichedSpecData.keyFeatures.slice(0, 3).map((f: string, i: number) => (
+                            <li key={i}>{f}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {enrichedSpecData.suggestedModules && (
+                      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        {enrichedSpecData.suggestedModules.map((m: string, i: number) => (
+                          <span key={i} style={{ padding: '1px 5px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '3px', color: '#34d399', fontSize: '0.7rem' }}>
+                            ✓ {m}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* 2. Color Theme Selector */}

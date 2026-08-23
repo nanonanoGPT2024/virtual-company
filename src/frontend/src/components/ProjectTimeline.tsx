@@ -37,6 +37,7 @@ export interface ProjectItem {
   status: string;
   port?: number;
   pm2_name?: string;
+  tunnel_url?: string;
   created_at: string;
   tasks: ProjectTask[];
   documents: ProjectDocument[];

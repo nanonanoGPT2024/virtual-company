@@ -16,7 +16,10 @@ import {
   Bot,
   Users,
   LogOut,
-  Lock
+  Lock,
+  Volume2,
+  VolumeX,
+  Bell
 } from 'lucide-react';
 import VirtualOffice from './components/VirtualOffice';
 import ProjectPipeline from './components/ProjectPipeline';
@@ -88,6 +91,69 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState<string>('');
   const [authError, setAuthError] = useState<string>('');
   const [authSubmitting, setAuthSubmitting] = useState<boolean>(false);
+
+  // Audio & Smart Toast Notification State
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('sound_notifications') !== 'false';
+  });
+  const [toastNotification, setToastNotification] = useState<{ id: string; title: string; message: string; type: string } | null>(null);
+  const prevStagesRef = useRef<Record<string, string>>({});
+
+  // Web Audio API Synthesizer (Pleasant Soft Chime)
+  const playSynthesizedChime = () => {
+    if (!soundEnabled) return;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+
+      const now = ctx.currentTime;
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(587.33, now); // D5
+      osc1.frequency.exponentialRampToValueAtTime(880.00, now + 0.15); // A5
+
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(440.00, now); // A4
+      osc2.frequency.exponentialRampToValueAtTime(659.25, now + 0.15); // E5
+
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.6);
+      osc2.stop(now + 0.6);
+    } catch (_) {}
+  };
+
+  const triggerStageToast = (title: string, message: string, type: string = 'info') => {
+    playSynthesizedChime();
+    setToastNotification({
+      id: `toast-${Date.now()}`,
+      title,
+      message,
+      type
+    });
+    setTimeout(() => {
+      setToastNotification(null);
+    }, 4500);
+  };
+
+  const toggleSound = () => {
+    setSoundEnabled(prev => {
+      const next = !prev;
+      localStorage.setItem('sound_notifications', String(next));
+      return next;
+    });
+  };
   
   // Floating Chat State
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
@@ -160,6 +226,25 @@ export default function App() {
       setIdeas(loadedIdeas);
 
       const loadedProjects = Array.isArray(projectsRes) ? projectsRes : [];
+      
+      // Stage Shift Detection for Autonomous Smart Toast & Soft Chime
+      loadedProjects.forEach((proj: ProjectItem) => {
+        const prevStage = prevStagesRef.current[proj.id];
+        const currentStage = (proj as any).current_stage || proj.status;
+        if (prevStage && prevStage !== currentStage) {
+          if (currentStage.includes('PRD')) {
+            triggerStageToast('📄 PRD Selesai', `Sarah (PM) telah menyelesaikan dokumen 01_PRD.md untuk ${proj.name || proj.title}`);
+          } else if (currentStage.includes('Building') || currentStage.includes('Engineering') || currentStage.includes('Parallel')) {
+            triggerStageToast('💻 Koding Paralel Dimulai', `Devron, Kaelen & Viktor sedang mengeksekusi source code & arsitektur ${proj.name || proj.title}`);
+          } else if (currentStage.includes('Testing') || currentStage.includes('QA')) {
+            triggerStageToast('🛡️ QA & Security Audit', `Tessa & Sentinel sedang menjalankan validasi kualitas & test suite`);
+          } else if (currentStage.includes('Live') || currentStage === 'DEPLOYED' || (proj as any).progress_percentage === 100) {
+            triggerStageToast('🎉 Proyek Live & Deployed!', `Proyek ${proj.name || proj.title} telah sukses aktif di port ${proj.port || 5001}`, 'success');
+          }
+        }
+        prevStagesRef.current[proj.id] = currentStage;
+      });
+
       setProjects(loadedProjects);
     } catch (err: any) {
       console.warn('API fetch warning:', err);
@@ -457,6 +542,29 @@ export default function App() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+              {/* Sound Notification Toggle */}
+              <button
+                onClick={toggleSound}
+                title={soundEnabled ? 'Matikan Suara Notifikasi' : 'Nyalakan Suara Notifikasi'}
+                style={{
+                  backgroundColor: soundEnabled ? 'rgba(56, 189, 248, 0.15)' : 'rgba(148, 163, 184, 0.1)',
+                  border: `1px solid ${soundEnabled ? 'rgba(56, 189, 248, 0.3)' : '#334155'}`,
+                  color: soundEnabled ? '#38bdf8' : '#64748b',
+                  padding: '0.4rem 0.65rem',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  transition: 'all 0.15s'
+                }}
+              >
+                {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                <span className="hidden sm:inline">{soundEnabled ? 'Sound ON' : 'Sound OFF'}</span>
+              </button>
+
               {/* User Role Badge */}
               {currentUser ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: '#0f172a', padding: '0.35rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #334155', fontSize: '0.8rem' }}>
@@ -1118,6 +1226,57 @@ export default function App() {
           )}
         </button>
       </div>
+
+      {/* ========================================================================= */}
+      {/* AUTONOMOUS STAGE SMART TOAST NOTIFICATION                                 */}
+      {/* ========================================================================= */}
+      {toastNotification && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '24px',
+          zIndex: 9999999,
+          backgroundColor: '#0f172a',
+          border: `1px solid ${toastNotification.type === 'success' ? '#34d399' : '#38bdf8'}`,
+          borderRadius: '0.85rem',
+          padding: '0.85rem 1.15rem',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 0 15px rgba(56, 189, 248, 0.3)',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '0.75rem',
+          maxWidth: '380px',
+          animation: 'slideIn 0.3s ease-out',
+          backdropFilter: 'blur(12px)'
+        }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            backgroundColor: toastNotification.type === 'success' ? 'rgba(52, 211, 153, 0.2)' : 'rgba(56, 189, 248, 0.2)',
+            color: toastNotification.type === 'success' ? '#34d399' : '#38bdf8',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Bell size={16} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc' }}>
+              {toastNotification.title}
+            </h4>
+            <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.4 }}>
+              {toastNotification.message}
+            </p>
+          </div>
+          <button
+            onClick={() => setToastNotification(null)}
+            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1 }}
+          >
+            &times;
+          </button>
+        </div>
+      )}
     </div>
   );
 }
