@@ -828,12 +828,16 @@ router.post('/:id/request-spec-revision', authenticateUser, async (req, res) => 
   }
 });
 
-// POST Create new project
+// POST Create new project (Strict Multi-Tenant & Auth Protected)
 router.post('/', authenticateUser, async (req, res) => {
   try {
     const user = (req as any).user;
-    const creatorUserId = user ? user.id : 'USR-OWNER-001';
-    const creatorName = user ? user.name : 'Nano (Owner)';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+    }
+
+    const creatorUserId = user.id;
+    const creatorName = user.name;
 
     const { 
       title, 

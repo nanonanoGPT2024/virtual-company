@@ -307,6 +307,9 @@ export default function App() {
     setAuthToken(null);
     setCurrentUser(null);
     setInspectUser(null);
+    setProjects([]);
+    setIdeas([]);
+    setChatMessages([]);
     setIsAuthModalOpen(true);
   };
 
@@ -422,10 +425,20 @@ export default function App() {
   };
 
   const handleBuildIdea = async (idea: Idea) => {
+    const activeToken = authToken || localStorage.getItem('company_os_token');
+    if (!activeToken) {
+      alert('Silakan login terlebih dahulu untuk membuat proyek dari ide.');
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/projects`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${activeToken}`
+        },
         body: JSON.stringify({
           title: idea.title,
           description: idea.problem_statement,
@@ -433,8 +446,11 @@ export default function App() {
         })
       });
       if (res.ok) {
-        await fetchData();
+        await fetchData(false, activeToken);
         setActiveTab('pipeline');
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Gagal membuat proyek dari ide.');
       }
     } catch (e) {
       console.error('Build idea error:', e);
