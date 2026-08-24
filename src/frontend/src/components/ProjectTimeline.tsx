@@ -36,6 +36,7 @@ export interface ProjectItem {
   budget_usd: string;
   status: string;
   port?: number;
+  user_id?: string;
   pm2_name?: string;
   tunnel_url?: string;
   version?: string;

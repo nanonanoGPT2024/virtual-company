@@ -13,15 +13,25 @@ import {
   Download, 
   ArrowLeft, 
   History, 
-  Bot 
+  Bot,
+  Lock,
+  ShieldAlert
 } from 'lucide-react';
 import type { ProjectItem } from './ProjectTimeline';
+
+interface CurrentUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'OWNER' | 'CLIENT';
+}
 
 interface ProjectWorkbenchProps {
   project: ProjectItem;
   projectDetail: any;
   apiBase: string;
   authToken?: string | null;
+  currentUser?: CurrentUser | null;
   onBack: () => void;
   onProjectUpdated?: () => void;
 }
@@ -58,11 +68,17 @@ export default function ProjectWorkbench({
   projectDetail: _projectDetail,
   apiBase,
   authToken,
+  currentUser,
   onBack,
   onProjectUpdated
 }: ProjectWorkbenchProps) {
   const [activeTab, setActiveTab] = useState<'preview' | 'code' | 'docs' | 'revisions'>('preview');
   
+  // Strict Multi-Tenant Protection:
+  // Detect if Owner is inspecting someone else's project
+  const isReadOnly = (currentUser?.role === 'OWNER' && String(project.user_id || '').trim().toLowerCase() !== String(currentUser?.id || '').trim().toLowerCase()) ||
+                     (currentUser?.role === 'CLIENT' && String(project.user_id || '').trim().toLowerCase() !== String(currentUser?.id || '').trim().toLowerCase());
+
   // Preview State
   const [previewKey, setPreviewKey] = useState<number>(Date.now());
   const [isPreviewLoading, setIsPreviewLoading] = useState<boolean>(true);
@@ -88,7 +104,9 @@ export default function ProjectWorkbench({
     {
       id: 'welcome',
       sender: 'PM',
-      text: `Halo! Saya Sarah Jenkins, Senior Product Manager untuk ${project.name || project.title}. Aplikasi saat ini berjalan di versi ${project.version || 'v1.0'} pada Port ${project.port || 5001}. Ada fitur, styling, atau perubahan yang ingin kita terapkan bersama tim Dev (Devron & Anya)?`,
+      text: isReadOnly 
+        ? `Halo ${currentUser?.name || 'Owner'}! Anda sedang dalam Mode Inspeksi Read-Only untuk ${project.name || project.title}. Anda dapat mengecek live preview, source code, dan bertanya seputar arsitektur proyek ini. Demi keamanan data klien, fitur perubahan kode dinonaktifkan.`
+        : `Halo! Saya Sarah Jenkins, Senior Product Manager untuk ${project.name || project.title}. Aplikasi saat ini berjalan di versi ${project.version || 'v1.0'} pada Port ${project.port || 5001}. Ada fitur, styling, atau perubahan yang ingin kita terapkan bersama tim Dev (Devron & Anya)?`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -230,6 +248,11 @@ export default function ProjectWorkbench({
 
   // Trigger Autonomous In-Place Code Patching & Auto-Reload
   const handleExecuteIteration = async (customPrompt?: string) => {
+    if (isReadOnly) {
+      alert('Akses Ditolak: Proyek ini berada dalam Mode Inspeksi Read-Only. Hanya Klien pemilik yang berhak melakukan perubahan kodingan.');
+      return;
+    }
+
     const promptToUse = customPrompt || chatInput.trim();
     if (!promptToUse || isIterating) return;
 
@@ -417,6 +440,13 @@ export default function ProjectWorkbench({
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#34d399', animation: 'pulse 1.5s infinite' }} />
                 Port {activePort} Active
               </span>
+
+              {isReadOnly && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#f59e0b', fontWeight: 700, backgroundColor: 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '9999px', border: '1px solid rgba(245, 158, 11, 0.35)' }}>
+                  <Lock size={12} />
+                  Mode Inspeksi (Read-Only)
+                </span>
+              )}
             </div>
             <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: '0.15rem 0 0 0' }}>
               AI Autonomous Project Studio &bull; {project.slug}
@@ -900,39 +930,48 @@ export default function ProjectWorkbench({
           </div>
 
           {/* Quick Suggestion Pills */}
-          <div style={{ padding: '0.5rem 0.75rem', borderTop: '1px solid #1e293b', backgroundColor: '#090d16', display: 'flex', gap: '0.35rem', overflowX: 'auto' }}>
-            <button
-              type="button"
-              disabled={isIterating}
-              onClick={() => handleExecuteIteration('Tambahkan tombol Export Laporan CSV/PDF dan perbagus visual kartu analytics.')}
-              style={{ fontSize: '0.7rem', padding: '2px 8px', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              + Export CSV & Analytics
-            </button>
-            <button
-              type="button"
-              disabled={isIterating}
-              onClick={() => handleExecuteIteration('Ubah tema styling warna menjadi Modern Dark Slate dengan aksen Emerald Neon.')}
-              style={{ fontSize: '0.7rem', padding: '2px 8px', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              + Dark Emerald Theme
-            </button>
-            <button
-              type="button"
-              disabled={isIterating}
-              onClick={() => handleExecuteIteration('Tambahkan fitur search bar interaktif dan filter status realtime pada tabel data.')}
-              style={{ fontSize: '0.7rem', padding: '2px 8px', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              + Search & Filter Bar
-            </button>
-          </div>
+          {!isReadOnly && (
+            <div style={{ padding: '0.5rem 0.75rem', borderTop: '1px solid #1e293b', backgroundColor: '#090d16', display: 'flex', gap: '0.35rem', overflowX: 'auto' }}>
+              <button
+                type="button"
+                disabled={isIterating}
+                onClick={() => handleExecuteIteration('Tambahkan tombol Export Laporan CSV/PDF dan perbagus visual kartu analytics.')}
+                style={{ fontSize: '0.7rem', padding: '2px 8px', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                + Export CSV & Analytics
+              </button>
+              <button
+                type="button"
+                disabled={isIterating}
+                onClick={() => handleExecuteIteration('Ubah tema styling warna menjadi Modern Dark Slate dengan aksen Emerald Neon.')}
+                style={{ fontSize: '0.7rem', padding: '2px 8px', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                + Dark Emerald Theme
+              </button>
+              <button
+                type="button"
+                disabled={isIterating}
+                onClick={() => handleExecuteIteration('Tambahkan fitur search bar interaktif dan filter status realtime pada tabel data.')}
+                style={{ fontSize: '0.7rem', padding: '2px 8px', backgroundColor: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                + Search & Filter Bar
+              </button>
+            </div>
+          )}
 
           {/* Chat & Patch Input Form */}
           <div style={{ padding: '0.75rem', borderTop: '1px solid #1e293b', backgroundColor: '#090d16', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {isReadOnly && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 0.65rem', borderRadius: '0.375rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', fontSize: '0.725rem', color: '#fbbf24' }}>
+                <ShieldAlert size={14} style={{ flexShrink: 0 }} />
+                <span>Mode Inspeksi: Diskusi PM aktif, patching kode dinonaktifkan.</span>
+              </div>
+            )}
+
             <textarea
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
-              placeholder="Ketik instruksi fitur / revisi kodingan di sini..."
+              placeholder={isReadOnly ? "Tanyakan status atau arsitektur proyek ini ke Sarah PM..." : "Ketik instruksi fitur / revisi kodingan di sini..."}
               rows={2}
               style={{
                 width: '100%',
@@ -954,7 +993,7 @@ export default function ProjectWorkbench({
                 onClick={handleSendPMChat}
                 disabled={!chatInput.trim() || isChatSending || isIterating}
                 style={{
-                  flex: 1,
+                  flex: isReadOnly ? 1 : 1,
                   backgroundColor: '#1e293b',
                   color: '#38bdf8',
                   border: '1px solid #334155',
@@ -971,34 +1010,36 @@ export default function ProjectWorkbench({
                 }}
               >
                 <Send size={13} />
-                Diskusi PM
+                {isReadOnly ? 'Kirim Pesan Asistensi' : 'Diskusi PM'}
               </button>
 
-              <button
-                type="button"
-                onClick={() => handleExecuteIteration()}
-                disabled={!chatInput.trim() || isIterating}
-                style={{
-                  flex: 1.3,
-                  backgroundColor: '#0284c7',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '0.45rem',
-                  borderRadius: '0.45rem',
-                  fontSize: '0.75rem',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.3rem',
-                  boxShadow: '0 2px 6px rgba(2, 132, 199, 0.4)',
-                  opacity: (!chatInput.trim() || isIterating) ? 0.5 : 1
-                }}
-              >
-                <Sparkles size={13} />
-                Patch & Auto-Reload
-              </button>
+              {!isReadOnly && (
+                <button
+                  type="button"
+                  onClick={() => handleExecuteIteration()}
+                  disabled={!chatInput.trim() || isIterating}
+                  style={{
+                    flex: 1.3,
+                    backgroundColor: '#0284c7',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '0.45rem',
+                    borderRadius: '0.45rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.3rem',
+                    boxShadow: '0 2px 6px rgba(2, 132, 199, 0.4)',
+                    opacity: (!chatInput.trim() || isIterating) ? 0.5 : 1
+                  }}
+                >
+                  <Sparkles size={13} />
+                  Patch & Auto-Reload
+                </button>
+              )}
             </div>
           </div>
         </div>

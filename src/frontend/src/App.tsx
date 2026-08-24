@@ -905,6 +905,7 @@ export default function App() {
                   onProjectCreated={() => fetchData(false)} 
                   apiBase={API_BASE}
                   authToken={authToken}
+                  currentUser={currentUser}
                   inspectUser={inspectUser}
                   onClearInspectUser={() => setInspectUser(null)}
                 />

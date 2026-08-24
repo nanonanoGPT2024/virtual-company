@@ -354,8 +354,36 @@ router.post('/:id/iterate', authenticateUser, async (req, res) => {
     const { prompt, iteration_type } = req.body;
     const user = (req as any).user;
 
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+    }
+
     if (!prompt || !prompt.trim()) {
       return res.status(400).json({ error: 'Instruksi iterasi / prompt perubahan diperlukan' });
+    }
+
+    const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
+    if (projRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Project tidak ditemukan' });
+    }
+    const project = projRes.rows[0];
+
+    // Strict Multi-Tenant Protection:
+    // Owner TIDAK BISA mengedit / memodifikasi proyek milik Klien (Read-Only Inspection Mode)
+    const isOwner = user.role === 'OWNER';
+    const isClient = user.role === 'CLIENT';
+    const isProjectOwner = String(project.user_id || '').trim().toLowerCase() === String(user.id || '').trim().toLowerCase();
+
+    if (isOwner && !isProjectOwner) {
+      return res.status(403).json({
+        error: 'Akses ditolak: Mode Inspeksi Read-Only. Demi menjaga integritas data klien, Owner tidak diizinkan memodifikasi source code milik klien.'
+      });
+    }
+
+    if (isClient && !isProjectOwner) {
+      return res.status(403).json({
+        error: 'Akses ditolak: Anda bukan pemilik proyek ini.'
+      });
     }
 
     const result = await iterateProjectPipeline(
@@ -422,10 +450,17 @@ router.post('/:id/chat-pm', authenticateUser, async (req, res) => {
       codeOverview += `Frontend overview (index.html length: ${fs.statSync(indexHtmlPath).size} bytes)\n`;
     }
 
+    const isOwner = user?.role === 'OWNER';
+    const isProjectOwner = String(project.user_id || '').trim().toLowerCase() === String(user?.id || '').trim().toLowerCase();
+    const isReadOnlyInspection = isOwner && !isProjectOwner;
+
     const systemPrompt = `Kamu adalah Sarah Jenkins, Senior Product Manager & Technical Lead untuk proyek "${project.title}".
 Peranmu: Menjadi partner diskusi teknis & fungsional yang responsif, cerdas, solutif, dan ramah.
 Kamu memahami arsitektur proyek, fitur yang sudah live pada port ${project.port}, serta riwayat versi (${project.version || 'v1.0'}).
-Jika pengguna menanyakan rekomendasi fitur atau meminta saran perbaikan, berikan opsi konkrit dan tawarkan bahwa kamu dan tim Dev (Devron & Anya) dapat langsung mengimplementasikannya melalui tombol iterasi/patching.`;
+${isReadOnlyInspection 
+  ? 'PERHATIAN KHUSUS: Pengguna saat ini adalah Owner yang sedang dalam "Mode Inspeksi Read-Only" pada proyek milik klien. Berikan informasi asistensi, analisis arsitektur, atau review kualitas proyek, tetapi tegaskan dengan ramah bahwa perubahan kode dinonaktifkan dalam mode inspeksi demi menjaga integritas data klien.'
+  : 'Jika pengguna menanyakan rekomendasi fitur atau meminta saran perbaikan, berikan opsi konkrit dan tawarkan bahwa kamu dan tim Dev (Devron & Anya) dapat langsung mengimplementasikannya melalui tombol iterasi/patching.'
+}`;
 
     const userPrompt = `Pesan dari ${senderTitle}: "${message}"
 Konteks Proyek:
@@ -434,6 +469,7 @@ Konteks Proyek:
 - Versi Saat Ini: ${project.version || 'v1.0'}
 - Port Aktif: ${project.port}
 - Ringkasan Terakhir: ${project.last_iteration_summary || 'Rilis awal v1.0'}
+- Mode Akses: ${isReadOnlyInspection ? 'READ-ONLY INSPECTION (Owner tidak dapat mengedit kode klien)' : 'FULL EDIT & ITERATION'}
 ${codeOverview ? `- Ringkasan Kodingan: \n${codeOverview}` : ''}`;
 
     const llmRes = await callAgentLLM('EMP-PM', systemPrompt, userPrompt, project.id);

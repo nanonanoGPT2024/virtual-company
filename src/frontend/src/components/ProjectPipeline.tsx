@@ -23,11 +23,19 @@ import {
 import type { ProjectItem, ProjectDocument } from './ProjectTimeline';
 import ProjectWorkbench from './ProjectWorkbench';
 
+interface CurrentUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'OWNER' | 'CLIENT';
+}
+
 interface ProjectPipelineProps {
   projects: ProjectItem[];
   onProjectCreated?: () => void;
   apiBase?: string;
   authToken?: string | null;
+  currentUser?: CurrentUser | null;
   inspectUser?: { id: string; name: string } | null;
   onClearInspectUser?: () => void;
 }
@@ -119,6 +127,7 @@ export default function ProjectPipeline({
   onProjectCreated, 
   apiBase = 'http://localhost:4000/api',
   authToken,
+  currentUser,
   inspectUser,
   onClearInspectUser 
 }: ProjectPipelineProps) {
@@ -931,6 +940,7 @@ export default function ProjectPipeline({
             projectDetail={selectedProjectDetail}
             apiBase={apiBase}
             authToken={authToken}
+            currentUser={currentUser}
             onBack={() => {
               setIsWorkbenchMode(false);
               setSelectedProjectId(null);
