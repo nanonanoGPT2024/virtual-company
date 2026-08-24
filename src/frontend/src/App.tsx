@@ -205,14 +205,20 @@ export default function App() {
   };
   const API_BASE = getApiBase();
 
-  const fetchData = async (isBackground: boolean = false) => {
+  const fetchData = async (isBackground: boolean = false, tokenOverride?: string | null) => {
     if (!isBackground) {
       setLoading(true);
     }
     try {
+      const activeToken = tokenOverride !== undefined ? tokenOverride : (authToken || localStorage.getItem('company_os_token'));
       const headers: Record<string, string> = {};
-      if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
+      if (activeToken) {
+        headers['Authorization'] = `Bearer ${activeToken}`;
+      } else {
+        // If no token available, clear sensitive state
+        setProjects([]);
+        setIdeas([]);
+        return;
       }
 
       const [companyRes, agentsRes, ideasRes, projectsRes] = await Promise.all([
@@ -283,7 +289,8 @@ export default function App() {
         setAuthEmail('');
         setAuthPassword('');
         setAuthName('');
-        fetchData();
+        fetchData(false, data.token);
+        fetchChat(selectedTargetId, data.token);
       } else {
         setAuthError(data.error || 'Autentikasi gagal');
       }
@@ -306,17 +313,24 @@ export default function App() {
   const handleInspectUserProjects = (userId: string, userName: string) => {
     setInspectUser({ id: userId, name: userName });
     setActiveTab('pipeline');
+    fetchData(false, authToken);
   };
 
-  const fetchChat = async (targetId: string) => {
+  const fetchChat = async (targetId: string, tokenOverride?: string | null) => {
     try {
+      const activeToken = tokenOverride !== undefined ? tokenOverride : (authToken || localStorage.getItem('company_os_token'));
+      const headers: Record<string, string> = {};
+      if (activeToken) {
+        headers['Authorization'] = `Bearer ${activeToken}`;
+      }
+
       let url = `${API_BASE}/chat`;
       if (targetId === 'WAR_ROOM') {
         url += `?room_type=WAR_ROOM`;
       } else {
         url += `?room_type=DIRECT&agent_id=${targetId}`;
       }
-      const res = await fetch(url);
+      const res = await fetch(url, { headers });
       if (res.ok) {
         const data = await res.json();
         setChatMessages(Array.isArray(data) ? data : []);
@@ -346,11 +360,16 @@ export default function App() {
     setChatInput('');
     setChatSending(true);
 
+    const isClient = currentUser?.role === 'CLIENT';
+    const fallbackSenderName = currentUser?.name || (isClient ? 'Client' : 'Nano (Owner)');
+    const fallbackSenderRole = currentUser?.role === 'OWNER' ? 'Owner' : (currentUser?.role || 'Client');
+
     const userMsg = {
       id: `temp-${Date.now()}`,
-      sender_id: 'EMP-OWNER',
-      sender_name: 'Nano (Owner)',
-      sender_role: 'Owner',
+      sender_type: 'HUMAN',
+      sender_id: currentUser?.id || 'EMP-OWNER',
+      sender_name: fallbackSenderName,
+      sender_role: fallbackSenderRole,
       message: messageText,
       room_type: isWarRoom ? 'WAR_ROOM' : 'DIRECT',
       created_at: new Date().toISOString()
@@ -358,9 +377,15 @@ export default function App() {
     setChatMessages(prev => [...prev, userMsg]);
 
     try {
+      const activeToken = authToken || localStorage.getItem('company_os_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (activeToken) {
+        headers['Authorization'] = `Bearer ${activeToken}`;
+      }
+
       const res = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           message: messageText,
           room_type: isWarRoom ? 'WAR_ROOM' : 'DIRECT',
@@ -876,8 +901,8 @@ export default function App() {
             {activeTab === 'pipeline' && (
               <div className="flex flex-col gap-4">
                 <ProjectPipeline 
-                  projects={inspectUser ? projects.filter(p => (p as any).user_id === inspectUser.id) : projects} 
-                  onProjectCreated={fetchData} 
+                  projects={inspectUser ? projects.filter(p => String((p as any).user_id || '').trim().toLowerCase() === String(inspectUser.id || '').trim().toLowerCase()) : projects} 
+                  onProjectCreated={() => fetchData(false)} 
                   apiBase={API_BASE}
                   inspectUser={inspectUser}
                   onClearInspectUser={() => setInspectUser(null)}
@@ -1285,15 +1310,19 @@ export default function App() {
               )}
 
               {chatMessages.map((m, idx) => {
-                const isOwner = m.sender_id === 'EMP-OWNER' || m.sender_id === 'OWNER' || m.sender_type === 'HUMAN';
+                const isHuman = m.sender_type === 'HUMAN' || m.sender_id === 'EMP-OWNER' || m.sender_id === 'OWNER' || (currentUser && m.sender_id === currentUser.id);
+                const isOwnerRole = (m.sender_role === 'Owner' || m.sender_role === 'OWNER') || (!m.sender_role && currentUser?.role === 'OWNER');
+                const defaultHumanName = isOwnerRole ? 'Nano (Owner)' : (currentUser?.name || 'Client');
+                const displayName = m.sender_name || (isHuman ? defaultHumanName : 'Agent');
+
                 return (
-                  <div key={m.id || idx} style={{ display: 'flex', gap: '0.625rem', justifyContent: isOwner ? 'flex-end' : 'flex-start' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: isOwner ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
+                  <div key={m.id || idx} style={{ display: 'flex', gap: '0.625rem', justifyContent: isHuman ? 'flex-end' : 'flex-start' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: isHuman ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.25rem', padding: '0 0.25rem' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: isOwner ? '#67e8f9' : '#cbd5e1' }}>
-                          {m.sender_name || (isOwner ? 'Nano (Owner)' : 'Agent')}
+                        <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: isHuman ? '#67e8f9' : '#cbd5e1' }}>
+                          {displayName}
                         </span>
-                        {!isOwner && m.sender_role && (
+                        {!isHuman && m.sender_role && (
                           <span style={{ fontSize: '0.7rem', fontFamily: 'monospace', textTransform: 'uppercase', background: '#1e293b', color: '#22d3ee', padding: '0.125rem 0.375rem', borderRadius: '0.25rem', border: '1px solid #334155' }}>
                             {m.sender_role}
                           </span>
@@ -1302,18 +1331,18 @@ export default function App() {
                       <div style={{
                         padding: '0.75rem 1rem',
                         borderRadius: '1.125rem',
-                        borderTopRightRadius: isOwner ? '0.25rem' : '1.125rem',
-                        borderTopLeftRadius: !isOwner ? '0.25rem' : '1.125rem',
+                        borderTopRightRadius: isHuman ? '0.25rem' : '1.125rem',
+                        borderTopLeftRadius: !isHuman ? '0.25rem' : '1.125rem',
                         fontSize: '0.875rem',
                         lineHeight: 1.6,
                         wordBreak: 'break-word',
-                        background: isOwner ? 'linear-gradient(to right, #0891b2, #4f46e5)' : '#1e293b',
-                        color: isOwner ? '#ffffff' : '#f1f5f9',
-                        border: isOwner ? 'none' : '1px solid #334155',
+                        background: isHuman ? 'linear-gradient(to right, #0891b2, #4f46e5)' : '#1e293b',
+                        color: isHuman ? '#ffffff' : '#f1f5f9',
+                        border: isHuman ? 'none' : '1px solid #334155',
                         boxShadow: '0 4px 6px -1px rgba(0,0,0,0.15)'
                       }}>
                         <div style={{ whiteSpace: 'pre-wrap' }}>{m.message}</div>
-                        <div style={{ fontSize: '0.7rem', marginTop: '0.375rem', fontFamily: 'monospace', textAlign: 'right', color: isOwner ? '#a5f3fc' : '#94a3b8' }}>
+                        <div style={{ fontSize: '0.7rem', marginTop: '0.375rem', fontFamily: 'monospace', textAlign: 'right', color: isHuman ? '#a5f3fc' : '#94a3b8' }}>
                           {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </div>

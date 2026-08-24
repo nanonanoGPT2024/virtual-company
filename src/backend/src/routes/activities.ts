@@ -8,6 +8,10 @@ const router = Router();
 router.get('/', authenticateUser, async (req, res) => {
   try {
     const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+    }
+
     const { department_id, project_id, user_id, limit = 50, sort = 'ASC' } = req.query;
 
     let query = `

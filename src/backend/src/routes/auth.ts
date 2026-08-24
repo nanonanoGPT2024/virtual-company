@@ -126,15 +126,11 @@ router.post('/login', async (req, res) => {
     const user = userRes.rows[0];
     const hashed = hashPassword(password);
 
-    // Support backward-compatible check if plain or hashed
+    console.log(`[Auth Debug] Attempt login for ${cleanEmail}: provided=${password}, hashed=${hashed}, db_hash=${user.password_hash}`);
+
     const isPasswordMatch = (user.password_hash === hashed) || (user.password_hash === password);
     if (!isPasswordMatch) {
       return res.status(401).json({ error: 'Password yang Anda masukkan salah' });
-    }
-
-    // Auto-upgrade plain password to hash if matched plain
-    if (user.password_hash === password) {
-      await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashed, user.id]).catch(() => {});
     }
 
     const token = createToken({ userId: user.id, email: user.email, role: user.role });

@@ -9,12 +9,16 @@ const router = Router();
 router.get('/', authenticateUser, async (req, res) => {
   try {
     const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+    }
+
     const { user_id } = req.query;
 
     let query = 'SELECT * FROM ideas';
     const params: any[] = [];
 
-    if (user && user.role === 'CLIENT') {
+    if (user.role === 'CLIENT') {
       // Client only sees their own scanned ideas or global starter ideas (user_id IS NULL)
       query += ' WHERE user_id = $1 OR user_id IS NULL';
       params.push(user.id);
