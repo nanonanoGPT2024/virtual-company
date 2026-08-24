@@ -30,6 +30,17 @@ export interface PipelineOptions {
   requireApproval?: boolean;
 }
 
+// Markdown Code Block Extractor Helper (Anti-JSON-Parse-Failure)
+export function extractCodeBlock(text: string, lang: string): string {
+  if (!text) return '';
+  const regex = new RegExp(`\`\`\`(?:${lang})?\\s*([\\s\\S]*?)\`\`\``, 'i');
+  const match = text.match(regex);
+  if (match && match[1] && match[1].trim().length > 50) {
+    return match[1].trim();
+  }
+  return text.trim();
+}
+
 export async function runProjectPipeline(projectId: string, options?: PipelineOptions) {
   try {
     const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [projectId]);
@@ -72,7 +83,7 @@ export async function runProjectPipeline(projectId: string, options?: PipelineOp
       for (const img of options.images) {
         if (img.base64) {
           try {
-            const cleanBase64 = img.base64.replace(/^data:image\/\w+;base64,/, '');
+            const cleanBase64 = img.base64.replace(/^data:image\/\w+;base64,/, '').replace(/^data:.*?;base64,/, '');
             const safeName = (img.name || `img-${Date.now()}.png`).replace(/[^a-zA-Z0-9_.-]/g, '_');
             const targetFilePath = path.join(imagesDir, safeName);
             fs.writeFileSync(targetFilePath, Buffer.from(cleanBase64, 'base64'));
@@ -206,96 +217,145 @@ Formatkan: Tech Stack (Node.js/Express + Tailwind), Database Model (${options?.s
       };
       fs.writeFileSync(path.join(projectDir, 'package.json'), JSON.stringify(rootPackageJson, null, 2));
 
-      // AI-Powered Dynamic Domain-Specific Code Generation
-      const codeGenPrompt = `Kamu adalah Lead Fullstack Engineer (Devron) dan UI/UX Designer (Anya).
-Tugasmu: Buatkan FULL SOURCE CODE siap pakai, fungsional, interaktif, dan berestetika modern kelas dunia untuk proyek berikut:
+      // Domain Classifier & Context Preparation
+      const titleLower = (project.title || '').toLowerCase();
+      const descLower = (project.description || project.goal || '').toLowerCase();
+      const combinedContext = `${titleLower} ${descLower}`;
 
-Nama Proyek: "${project.title}"
-Deskripsi & Tujuan: "${project.description || project.goal}"
-Spesifikasi PRD:
-${prdContent.slice(0, 3000)}
+      const isHealth = combinedContext.includes('telemedis') || combinedContext.includes('puskesmas') || combinedContext.includes('diagnosa') || combinedContext.includes('klinik') || combinedContext.includes('dokter') || combinedContext.includes('pasien') || combinedContext.includes('medik') || combinedContext.includes('rumah sakit') || combinedContext.includes('obat') || combinedContext.includes('farmasi') || combinedContext.includes('triase');
+      const isPos = combinedContext.includes('pos') || combinedContext.includes('kopi') || combinedContext.includes('cafe') || combinedContext.includes('resto') || combinedContext.includes('kasir') || combinedContext.includes('menu') || combinedContext.includes('barista') || combinedContext.includes('makanan') || combinedContext.includes('minuman');
+      const isLaundry = combinedContext.includes('laundry') || combinedContext.includes('cuci') || combinedContext.includes('setrika') || combinedContext.includes('kiloan');
+      const isLogistics = combinedContext.includes('ekspedisi') || combinedContext.includes('logistik') || combinedContext.includes('kurir') || combinedContext.includes('paket') || combinedContext.includes('resi') || combinedContext.includes('shipping') || combinedContext.includes('cargo');
+      const isFinance = combinedContext.includes('gaji') || combinedContext.includes('payroll') || combinedContext.includes('keuangan') || combinedContext.includes('finance') || combinedContext.includes('invoice') || combinedContext.includes('tagihan') || combinedContext.includes('reimburse');
 
-Pilihan Arsitektur:
-- Port: process.env.PORT || ${port}
-- Tema Visual: ${options?.theme || 'cyber'} (Gunakan Tailwind CSS, Lucide Icons, Plus Jakarta Sans, glassmorphism)
-- Autentikasi: ${options?.includeAuth ? 'Aktifkan sistem JWT/Login' : 'Bypass / Direct mode'}
-- Storage Model: ${options?.storageType || 'memory'}
+      let domainCategory = "GENERAL_SAAS";
+      if (isHealth) domainCategory = "HEALTHCARE_TELEMEDICINE";
+      else if (isPos) domainCategory = "POS_RETAIL_FB";
+      else if (isLaundry) domainCategory = "LAUNDRY_SERVICE";
+      else if (isLogistics) domainCategory = "LOGISTICS_EXPEDITION";
+      else if (isFinance) domainCategory = "FINANCE_PAYROLL";
 
-PETUNJUK DOMAIN KHUSUS (SANGAT PENTING):
-1. JANGAN MEMBUAT APLIKASI TODO-LIST GENERIK! Buat struktur data, field, endpoint, dan antarmuka yang SPESIFIK SESUAI DOMAIN PROYEK:
-   - Jika POS / Cafe / Resto: Produk menu kopi/makanan, harga (IDR), status pesanan (BREWING, READY, SERVED), kasir/meja, payment method.
-   - Jika Laundry: Layanan (Kiloan, Bedcover, Cuci Kering), status cucian (MENUNGGU, DICUCI, DISETRIKA, SELESAI), berat (KG), nama pelanggan.
-   - Jika Klinik / Kesehatan: Pasien, dokter/poli, nomor antrean, diagnosa/keluhan, status antrean (MENUNGGU, DIPERIKSA, SELESAI).
-   - Jika Logistik / Ekspedisi: Resi pengiriman, kurir, asal-tujuan, status paket (TRANSIT, OUT_FOR_DELIVERY, DELIVERED).
-   - Jika Keuangan / Slip Gaji / SaaS lain: Sesuaikan skema record dan alur kerja bisnis secara presisi.
+      console.log(`[Dynamic CodeGen Pipeline] Domain detected: ${domainCategory} for ${project.title}`);
 
-2. Kebutuhan File yang Dihasilkan:
-   a. "serverJs": Kode lengkap Node.js Express (CommonJS, require express, cors, path, dll). Sediakan data awal (3-5 baris dummy domain realistis), REST API lengkap (GET, POST, PATCH/PUT, DELETE), dan routing file static ../frontend.
-   b. "indexHtml": HTML5 lengkap (dari <!DOCTYPE html> sampai </html>), modern, responsif, Tailwind CSS (via CDN), Lucide Icons, header, KPI metric summary cards, filter/search bar, form input data domain, grid/list cards atau data table interaktif, modal/popup, dan fungsi Vanilla JS lengkap untuk memanggil API backend.
-   c. "styleCss": Styling tambahan glassmorphism, animasi pulse, dan font Plus Jakarta Sans.
+      // =========================================================================
+      // SUB-TASK A: DEVRON (Backend Dev) - Express API with Domain Mock Database
+      // =========================================================================
+      const devronBackendPrompt = `Kamu adalah Devron, Lead Backend Engineer di software studio.
+Tugasmu: Tuliskan file Node.js Express Backend ("server.js") LENGKAP siap jalan untuk proyek ini:
 
-Output WAJIB berupa JSON valid murni (tanpa penjelasan markdown di luar JSON) dengan struktur:
-{
-  "serverJs": "...",
-  "indexHtml": "...",
-  "styleCss": "..."
-}`;
+Judul Proyek: "${project.title}"
+Deskripsi: "${project.description || project.goal}"
+Kategori Domain: ${domainCategory}
+Port: process.env.PORT || ${port}
 
-      let generatedCode: any = null;
+Spesifikasi Teknis:
+1. Format CommonJS (require express, cors, path, dll).
+2. Sediakan mock in-memory database dengan struktur field data YANG 100% SESUAI DENGAN DOMAIN (${domainCategory}):
+   ${isHealth ? "- Struktur Pasien/Konsultasi: id, name, age, gender, symptoms, triage_level (EMERGENCY/URGENT/ROUTINE), recommended_poly (Umum/Gigi/KIA/Lansia), status (MENUNGGU/DIPERIKSA/RUJUK/SELESAI), created_at." : ""}
+   ${isPos ? "- Struktur POS Orders: id, item, category, price, customer, notes, payment_method, status (BREWING/READY/SERVED), created_at." : ""}
+   ${isLaundry ? "- Struktur Laundry Orders: id, customer, phone, service_type, weight_kg, total_price, status (MENUNGGU/DICUCI/DISETRIKA/SIAP_AMBIL), created_at." : ""}
+   ${isLogistics ? "- Struktur Shipments: id, tracking_number, sender, recipient, destination, courier, weight_kg, status (MANIFEST/TRANSIT/OUT_FOR_DELIVERY/DELIVERED), created_at." : ""}
+   ${isFinance ? "- Struktur Payroll/Transactions: id, employee_name, department, period, basic_salary, allowance, deduction, net_salary, status (DRAFT/APPROVED/PAID), created_at." : ""}
+3. Sediakan 3-5 baris dummy data awal yang realistis berbahasa Indonesia.
+4. Buatkan REST API Endpoints lengkap:
+   - GET /health
+   - GET /api/items (dan alias domain misal /api/consultations, /api/orders, /api/patients, /api/shipments)
+   - POST /api/items (dan alias domain)
+   - PATCH /api/items/:id (dan alias domain)
+   - DELETE /api/items/:id (dan alias domain)
+5. Sajikan static files dari ../frontend dan fallback SPA routing (app.get('*', ...)).
+6. app.listen(PORT, '0.0.0.0', ...).
+
+KEMBALIKAN HANYA KODE JAVASCRIPT DALAM CODE BLOCK:
+\`\`\`javascript
+// Kode server.js lengkap di sini
+\`\`\``;
+
+      // =========================================================================
+      // SUB-TASK B: ANYA (Frontend UI/UX) - Modern Responsive Dashboard UI
+      // =========================================================================
+      const anyaFrontendPrompt = `Kamu adalah Anya, Lead Frontend Engineer & UI/UX Specialist.
+Tugasmu: Tuliskan file HTML5 ("index.html") LENGKAP berestetika modern kelas dunia (Linear/Vercel/Stripe aesthetic) untuk proyek ini:
+
+Judul Proyek: "${project.title}"
+Deskripsi: "${project.description || project.goal}"
+Kategori Domain: ${domainCategory}
+Port: ${port}
+
+Spesifikasi Visual & Fungsional:
+1. HTML5 Lengkap (dari <!DOCTYPE html> sampai </html>).
+2. Tailwind CSS (via https://cdn.tailwindcss.com), Google Fonts Plus Jakarta Sans, dan Lucide Icons (https://unpkg.com/lucide@latest).
+3. Tema Dark Modern: Background slate-950, card glassmorphism (slate-900 border slate-800), rounded-xl/2xl, pulsing live green badge.
+4. Komponen Wajib Sesuai Domain (${domainCategory}):
+   - Top Header dengan Nama Proyek, Badge LIVE, Status Port ${port}, dan Tombol Refresh.
+   - 3-4 KPI Summary Metric Cards (Total Entri, Active/Pending, Selesai/Done, Metrik Spesifik Domain).
+   - Form Entri / Input Data Spesifik Domain (${isHealth ? "Form Triase Pasien & Keluhan Gejala Puskesmas" : isPos ? "Form Order Menu Kasir / Barista" : isLaundry ? "Form Penerimaan Cucian Baru" : "Form Entri Data Operasional"}).
+   - Search & Real-time Filter Bar.
+   - List Cards / Data Table Interaktif yang menampilkan status badge berwarna (Emerald=Done, Amber=Pending, Rose=Emergency).
+   - Tombol Aksi per baris (Ubah Status, Selesai, Hapus).
+5. Script JavaScript Vanilla terintegrasi penuh yang memanggil REST API backend (/api/items atau alias domain) untuk Load Data, Tambah Data, Update Status, dan Hapus Data.
+
+KEMBALIKAN HANYA KODE HTML DALAM CODE BLOCK:
+\`\`\`html
+<!DOCTYPE html>
+<!-- Kode index.html lengkap di sini -->
+</html>
+\`\`\``;
+
+      let generatedServerJs = "";
+      let generatedIndexHtml = "";
+
       try {
-        const llmCodeRes = await callAgentLLM(
-          'EMP-DEV',
-          'Kamu adalah Principal Fullstack Engineer. Selalu hasilkan JSON valid dengan field serverJs, indexHtml, dan styleCss.',
-          codeGenPrompt,
-          projectId
-        );
+        const [devronRes, anyaRes] = await Promise.all([
+          callAgentLLM('EMP-DEV', 'Kamu adalah Principal Backend Engineer (Devron). Selalu outputkan kode javascript di dalam markdown code block.', devronBackendPrompt, projectId),
+          callAgentLLM('EMP-FE', 'Kamu adalah Principal Frontend Engineer (Anya). Selalu outputkan kode HTML lengkap di dalam markdown code block.', anyaFrontendPrompt, projectId)
+        ]);
 
-        const match = llmCodeRes.content.match(/\{[\s\S]*\}/);
-        if (match) {
-          generatedCode = JSON.parse(match[0]);
-        }
-      } catch (err) {
-        console.warn(`[Dynamic CodeGen Warning for ${projectId}]:`, err);
+        generatedServerJs = extractCodeBlock(devronRes.content, 'javascript');
+        generatedIndexHtml = extractCodeBlock(anyaRes.content, 'html');
+      } catch (genErr) {
+        console.warn(`[Dynamic CodeGen Dual LLM Warning for ${projectId}]:`, genErr);
       }
 
-      // Domain-Aware Fallback if LLM Generation fails or empty
-      if (!generatedCode || !generatedCode.serverJs || !generatedCode.indexHtml) {
-        console.log(`[Dynamic CodeGen] Using domain-adapted fallback generator for ${project.title}`);
-        const domainTitle = project.title.toLowerCase();
-        const isPos = domainTitle.includes('pos') || domainTitle.includes('kopi') || domainTitle.includes('cafe') || domainTitle.includes('resto');
-        const isLaundry = domainTitle.includes('laundry') || domainTitle.includes('cuci');
-        const isClinic = domainTitle.includes('medik') || domainTitle.includes('klinik') || domainTitle.includes('antrean') || domainTitle.includes('pasien');
+      // Robust Domain Fallback if Extraction is Too Short or Failed
+      if (!generatedServerJs || generatedServerJs.length < 150) {
+        console.log(`[Dynamic CodeGen] Generating domain fallback server.js for ${domainCategory}`);
+        let endpointSlug = "items";
+        let initialRows: any[] = [];
 
-        let dataEndpointName = 'items';
-        let initialData = [];
-
-        if (isPos) {
-          dataEndpointName = 'orders';
-          initialData = [
-            { id: 1, item: 'Kopi Susu Aren Signature', category: 'Coffee', price: 22000, customer: 'Budi Santoso', status: 'BREWING', created_at: new Date().toISOString() },
-            { id: 2, item: 'Matcha Latte Oatmilk', category: 'Non-Coffee', price: 28000, customer: 'Siti Rahma', status: 'READY', created_at: new Date().toISOString() },
-            { id: 3, item: 'Croissant Butter Pastry', category: 'Bakery', price: 18000, customer: 'Dimas', status: 'SERVED', created_at: new Date().toISOString() }
+        if (isHealth) {
+          endpointSlug = "consultations";
+          initialRows = [
+            { id: 1, name: "Budi Santoso", age: 42, gender: "Laki-laki", symptoms: "Demam tinggi 3 hari, batuk kering, sesak ringan", triage_level: "URGENT", recommended_poly: "Poli Umum", status: "SEDANG_DIPERIKSA", created_at: new Date().toISOString() },
+            { id: 2, name: "Siti Rahma", age: 29, gender: "Perempuan", symptoms: "Pemeriksaan kehamilan rutin trimester 2", triage_level: "ROUTINE", recommended_poly: "Poli KIA", status: "MENUNGGU", created_at: new Date().toISOString() },
+            { id: 3, name: "H. Supardi", age: 67, gender: "Laki-laki", symptoms: "Nyeri dada menjalar ke punggung kiri", triage_level: "EMERGENCY", recommended_poly: "IGD / Tindakan", status: "RUJUK_RSUD", created_at: new Date().toISOString() }
+          ];
+        } else if (isPos) {
+          endpointSlug = "orders";
+          initialRows = [
+            { id: 1, item: "Kopi Susu Aren Signature", category: "Coffee", price: 22000, customer: "Dimas", notes: "Less ice, normal sweet", payment_method: "QRIS", status: "BREWING", created_at: new Date().toISOString() },
+            { id: 2, item: "Matcha Latte Oatmilk", category: "Non-Coffee", price: 28000, customer: "Amanda", notes: "Hot", payment_method: "CASH", status: "READY", created_at: new Date().toISOString() }
           ];
         } else if (isLaundry) {
-          dataEndpointName = 'orders';
-          initialData = [
-            { id: 1, customer: 'Budi Santoso', service: 'Cuci Komplit Kilat', weight: 4.5, total: 36000, status: 'PROSES_CUCI', created_at: new Date().toISOString() },
-            { id: 2, customer: 'Ibu Ratna', service: 'Bedcover King & Selimut', weight: 6.0, total: 60000, status: 'SIAP_AMBIL', created_at: new Date().toISOString() }
+          endpointSlug = "orders";
+          initialRows = [
+            { id: 1, customer: "Budi Santoso", phone: "08123456789", service_type: "Cuci Komplit Kilat 1 Hari", weight_kg: 4.5, total_price: 36000, status: "DICUCI", created_at: new Date().toISOString() },
+            { id: 2, customer: "Ibu Ratna", phone: "08198765432", service_type: "Bedcover King & Selimut", weight_kg: 6.0, total_price: 60000, status: "SIAP_AMBIL", created_at: new Date().toISOString() }
           ];
-        } else if (isClinic) {
-          dataEndpointName = 'patients';
-          initialData = [
-            { id: 1, name: 'Ahmad Fauzi', queue_no: 'A-001', poly: 'Poli Umum', complaint: 'Demam & Flu', status: 'SEDANG_DIPERIKSA', created_at: new Date().toISOString() },
-            { id: 2, name: 'Dewi Lestari', queue_no: 'A-002', poly: 'Poli Gigi', complaint: 'Konsultasi Behel', status: 'MENUNGGU', created_at: new Date().toISOString() }
+        } else if (isLogistics) {
+          endpointSlug = "shipments";
+          initialRows = [
+            { id: 1, tracking_number: "EXP-9821-JKT", sender: "Toko Elektronik Maju", recipient: "Budi Santoso (Surabaya)", courier: "JNE Regular", weight_kg: 2.1, status: "OUT_FOR_DELIVERY", created_at: new Date().toISOString() },
+            { id: 2, tracking_number: "EXP-5542-BDG", sender: "Fashion Distro Bandung", recipient: "Siti Rahma (Medan)", courier: "SiCepat Express", weight_kg: 1.0, status: "TRANSIT", created_at: new Date().toISOString() }
           ];
         } else {
-          initialData = [
-            { id: 1, title: 'Master Data Inisial 1', category: 'Operational', value: 150000, status: 'ACTIVE', created_at: new Date().toISOString() },
-            { id: 2, title: 'Master Data Inisial 2', category: 'Analytics', value: 320000, status: 'ACTIVE', created_at: new Date().toISOString() }
+          initialRows = [
+            { id: 1, title: "Master Record 001", category: "Operational", value: 150000, status: "ACTIVE", created_at: new Date().toISOString() },
+            { id: 2, title: "Master Record 002", category: "Analytics", value: 320000, status: "ACTIVE", created_at: new Date().toISOString() }
           ];
         }
 
-        const fallbackServerJs = `const express = require('express');
+        generatedServerJs = `const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
@@ -306,13 +366,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-let dataset = ${JSON.stringify(initialData, null, 2)};
+let dataset = ${JSON.stringify(initialRows, null, 2)};
 
-app.get('/health', (req, res) => res.json({ status: 'OK', project: '${project.title}', port: PORT }));
-app.get('/api/${dataEndpointName}', (req, res) => res.json({ success: true, data: dataset }));
+app.get('/health', (req, res) => res.json({ status: 'OK', project: '${project.title}', domain: '${domainCategory}', port: PORT }));
+app.get('/api/${endpointSlug}', (req, res) => res.json({ success: true, data: dataset }));
 app.get('/api/items', (req, res) => res.json({ success: true, data: dataset }));
 
-app.post('/api/${dataEndpointName}', (req, res) => {
+app.post('/api/${endpointSlug}', (req, res) => {
   const newRow = { id: dataset.length + 1, ...req.body, created_at: new Date().toISOString() };
   dataset.unshift(newRow);
   res.status(201).json({ success: true, data: newRow });
@@ -323,7 +383,14 @@ app.post('/api/items', (req, res) => {
   res.status(201).json({ success: true, data: newRow });
 });
 
-app.patch('/api/${dataEndpointName}/:id', (req, res) => {
+app.patch('/api/${endpointSlug}/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const row = dataset.find(r => r.id === id);
+  if (!row) return res.status(404).json({ error: 'Record not found' });
+  Object.assign(row, req.body);
+  res.json({ success: true, data: row });
+});
+app.patch('/api/items/:id', (req, res) => {
   const id = parseInt(req.params.id, 10);
   const row = dataset.find(r => r.id === id);
   if (!row) return res.status(404).json({ error: 'Record not found' });
@@ -331,7 +398,12 @@ app.patch('/api/${dataEndpointName}/:id', (req, res) => {
   res.json({ success: true, data: row });
 });
 
-app.delete('/api/${dataEndpointName}/:id', (req, res) => {
+app.delete('/api/${endpointSlug}/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  dataset = dataset.filter(r => r.id !== id);
+  res.json({ success: true, message: 'Record deleted' });
+});
+app.delete('/api/items/:id', (req, res) => {
   const id = parseInt(req.params.id, 10);
   dataset = dataset.filter(r => r.id !== id);
   res.json({ success: true, message: 'Record deleted' });
@@ -345,8 +417,11 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('[Live Micro-App] ${project.title} running on port ' + PORT);
 });
 `;
+      }
 
-        const fallbackIndexHtml = `<!DOCTYPE html>
+      if (!generatedIndexHtml || generatedIndexHtml.length < 200) {
+        console.log(`[Dynamic CodeGen] Generating domain fallback index.html for ${domainCategory}`);
+        generatedIndexHtml = `<!DOCTYPE html>
 <html lang="id" class="dark">
 <head>
   <meta charset="UTF-8">
@@ -366,7 +441,7 @@ app.listen(PORT, '0.0.0.0', () => {
   <header class="glassmorphism sticky top-0 z-40 px-6 py-4 border-b border-slate-800 flex justify-between items-center">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white font-black shadow-lg shadow-cyan-500/20">
-        <i data-lucide="sparkles" class="w-5 h-5"></i>
+        <i data-lucide="${isHealth ? 'stethoscope' : isPos ? 'coffee' : isLaundry ? 'shirt' : isLogistics ? 'truck' : 'sparkles'}" class="w-5 h-5"></i>
       </div>
       <div>
         <div class="flex items-center gap-2">
@@ -375,8 +450,11 @@ app.listen(PORT, '0.0.0.0', () => {
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             LIVE
           </span>
+          <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-800 text-cyan-400 border border-slate-700">
+            ${domainCategory}
+          </span>
         </div>
-        <p class="text-xs text-slate-400">${project.description || 'Aplikasi otonom enterprise siap pakai'}</p>
+        <p class="text-xs text-slate-400">${project.description || 'Aplikasi otonom terintegrasi VirtuLabs Studio'}</p>
       </div>
     </div>
     <div class="flex items-center gap-3">
@@ -395,7 +473,7 @@ app.listen(PORT, '0.0.0.0', () => {
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <div class="glassmorphism p-4 rounded-xl flex items-center justify-between">
         <div>
-          <span class="text-xs font-medium text-slate-400">Total Transaksi</span>
+          <span class="text-xs font-medium text-slate-400">${isHealth ? 'Total Pasien / Triase' : isPos ? 'Total Pesanan Menu' : isLaundry ? 'Total Order Laundry' : 'Total Rekaman'}</span>
           <h3 id="statTotal" class="text-2xl font-extrabold text-white mt-0.5">0</h3>
         </div>
         <div class="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
@@ -405,7 +483,7 @@ app.listen(PORT, '0.0.0.0', () => {
 
       <div class="glassmorphism p-4 rounded-xl flex items-center justify-between">
         <div>
-          <span class="text-xs font-medium text-slate-400">Aktif / Berjalan</span>
+          <span class="text-xs font-medium text-slate-400">${isHealth ? 'Antrean Menunggu' : 'Dalam Proses'}</span>
           <h3 id="statActive" class="text-2xl font-extrabold text-amber-400 mt-0.5">0</h3>
         </div>
         <div class="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
@@ -415,7 +493,7 @@ app.listen(PORT, '0.0.0.0', () => {
 
       <div class="glassmorphism p-4 rounded-xl flex items-center justify-between">
         <div>
-          <span class="text-xs font-medium text-slate-400">Selesai / Ready</span>
+          <span class="text-xs font-medium text-slate-400">${isHealth ? 'Selesai / Terlayani' : 'Selesai / Selesai'}</span>
           <h3 id="statDone" class="text-2xl font-extrabold text-emerald-400 mt-0.5">0</h3>
         </div>
         <div class="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
@@ -428,20 +506,37 @@ app.listen(PORT, '0.0.0.0', () => {
       <div class="glassmorphism p-5 rounded-2xl md:col-span-1 shadow-xl">
         <div class="flex items-center gap-2 mb-4 text-white font-bold text-sm">
           <i data-lucide="plus-circle" class="w-4 h-4 text-cyan-400"></i>
-          <span>Entri Transaksi Baru</span>
+          <span>${isHealth ? 'Pendaftaran & Triase AI Pasien' : 'Entri Data / Transaksi Baru'}</span>
         </div>
-        <form id="recordForm" class="space-y-4">
+        <form id="recordForm" class="space-y-3.5">
           <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Nama / Item Entri</label>
-            <input type="text" id="inputTitle" required placeholder="Masukkan data..." class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
+            <label class="block text-xs font-semibold text-slate-400 mb-1">${isHealth ? 'Nama Lengkap Pasien' : 'Nama Item / Customer'}</label>
+            <input type="text" id="inputTitle" required placeholder="${isHealth ? 'Contoh: Ibu Siti Rahma' : 'Masukkan data...'}" class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
           </div>
+          ${isHealth ? `
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Usia (Tahun)</label>
+              <input type="number" id="inputAge" placeholder="35" class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Poli Tujuan</label>
+              <select id="inputPoly" class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-2.5 py-2 text-sm focus:outline-none focus:border-cyan-500">
+                <option value="Poli Umum">Poli Umum</option>
+                <option value="Poli Gigi">Poli Gigi</option>
+                <option value="Poli KIA">Poli KIA & Anak</option>
+                <option value="Poli Lansia">Poli Lansia</option>
+              </select>
+            </div>
+          </div>
+          ` : ''}
           <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Catatan / Detail Tambahan</label>
-            <textarea id="inputDesc" rows="2" placeholder="Keterangan opsional..." class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 resize-none"></textarea>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">${isHealth ? 'Keluhan Gejala Utama' : 'Catatan / Deskripsi'}</label>
+            <textarea id="inputDesc" rows="2" placeholder="${isHealth ? 'Deskripsikan gejala yang dirasakan...' : 'Keterangan tambahan...'}" class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 resize-none"></textarea>
           </div>
           <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm transition hover:opacity-90 shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2">
             <i data-lucide="send" class="w-4 h-4"></i>
-            <span>Simpan Entri</span>
+            <span>${isHealth ? 'Proses Triase & Daftar' : 'Simpan Data'}</span>
           </button>
         </form>
       </div>
@@ -450,14 +545,12 @@ app.listen(PORT, '0.0.0.0', () => {
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
           <div class="flex items-center gap-2">
             <i data-lucide="list" class="w-4 h-4 text-cyan-400"></i>
-            <span class="font-bold text-sm text-white">Daftar Data Live</span>
+            <span class="font-bold text-sm text-white">${isHealth ? 'Daftar Antrean & Triase Puskesmas' : 'Daftar Rekaman Live'}</span>
           </div>
           <input type="text" id="searchInput" placeholder="Cari data..." oninput="renderTable()" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none">
         </div>
 
-        <div id="dataList" class="space-y-2.5">
-          <!-- Dynamic Content -->
-        </div>
+        <div id="dataList" class="space-y-2.5"></div>
       </div>
     </div>
   </main>
@@ -466,7 +559,7 @@ app.listen(PORT, '0.0.0.0', () => {
     let dataset = [];
     async function loadData() {
       try {
-        const res = await fetch('/api/${dataEndpointName}');
+        const res = await fetch('/api/items');
         const json = await res.json();
         dataset = json.data || [];
         updateStats();
@@ -478,8 +571,8 @@ app.listen(PORT, '0.0.0.0', () => {
 
     function updateStats() {
       document.getElementById('statTotal').innerText = dataset.length;
-      document.getElementById('statActive').innerText = dataset.filter(x => x.status !== 'DONE' && x.status !== 'SERVED' && x.status !== 'SELESAI').length;
-      document.getElementById('statDone').innerText = dataset.filter(x => x.status === 'DONE' || x.status === 'SERVED' || x.status === 'SELESAI').length;
+      document.getElementById('statActive').innerText = dataset.filter(x => x.status !== 'DONE' && x.status !== 'SELESAI' && x.status !== 'SERVED').length;
+      document.getElementById('statDone').innerText = dataset.filter(x => x.status === 'DONE' || x.status === 'SELESAI' || x.status === 'SERVED').length;
     }
 
     function renderTable() {
@@ -493,13 +586,23 @@ app.listen(PORT, '0.0.0.0', () => {
       }
 
       list.innerHTML = filtered.map(item => {
-        const title = item.item || item.name || item.title || item.customer || 'Record #' + item.id;
-        const sub = item.poly || item.service || item.category || item.complaint || item.description || '';
-        return '<div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">' +
-          '<div><h4 class="font-bold text-sm text-white">' + title + '</h4>' +
-          (sub ? '<p class="text-xs text-slate-400 mt-0.5">' + sub + '</p>' : '') + '</div>' +
-          '<div class="flex items-center gap-2"><span class="px-2 py-0.5 text-[10px] font-bold rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">' + (item.status || 'ACTIVE') + '</span></div>' +
-          '</div>';
+        const title = item.name || item.item || item.title || item.customer || item.tracking_number || 'Record #' + item.id;
+        const sub = item.symptoms || item.recommended_poly || item.poly || item.service_type || item.category || item.complaint || item.description || '';
+        const triage = item.triage_level || '';
+        const statusColor = triage === 'EMERGENCY' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : triage === 'URGENT' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
+
+        return '<div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-3">' +
+          '<div>' +
+            '<div class="flex items-center gap-2">' +
+              '<h4 class="font-bold text-sm text-white">' + title + '</h4>' +
+              (triage ? '<span class="px-1.5 py-0.5 text-[9px] font-bold rounded ' + statusColor + ' border">' + triage + '</span>' : '') +
+            '</div>' +
+            (sub ? '<p class="text-xs text-slate-400 mt-0.5">' + sub + '</p>' : '') +
+          '</div>' +
+          '<div class="flex items-center gap-2">' +
+            '<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-slate-300 border border-slate-700">' + (item.status || 'ACTIVE') + '</span>' +
+          '</div>' +
+        '</div>';
       }).join('');
       if (window.lucide) lucide.createIcons();
     }
@@ -508,10 +611,22 @@ app.listen(PORT, '0.0.0.0', () => {
       e.preventDefault();
       const title = document.getElementById('inputTitle').value;
       const desc = document.getElementById('inputDesc').value;
-      await fetch('/api/${dataEndpointName}', {
+      const age = document.getElementById('inputAge') ? document.getElementById('inputAge').value : undefined;
+      const poly = document.getElementById('inputPoly') ? document.getElementById('inputPoly').value : undefined;
+
+      await fetch('/api/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ item: title, title, description: desc, status: 'ACTIVE' })
+        body: JSON.stringify({ 
+          name: title, 
+          title, 
+          description: desc, 
+          symptoms: desc, 
+          age: age ? parseInt(age, 10) : undefined, 
+          recommended_poly: poly, 
+          triage_level: 'ROUTINE',
+          status: 'MENUNGGU' 
+        })
       });
       document.getElementById('inputTitle').value = '';
       document.getElementById('inputDesc').value = '';
@@ -522,18 +637,12 @@ app.listen(PORT, '0.0.0.0', () => {
   </script>
 </body>
 </html>`;
-
-        generatedCode = {
-          serverJs: fallbackServerJs,
-          indexHtml: fallbackIndexHtml,
-          styleCss: "/* Modern Studio Stylesheet */\nbody { font-family: 'Plus Jakarta Sans', sans-serif; }"
-        };
       }
 
-      // Write Files to Destination Directories
-      fs.writeFileSync(path.join(backendDir, 'server.js'), generatedCode.serverJs.trim(), 'utf8');
-      fs.writeFileSync(path.join(frontendDir, 'index.html'), generatedCode.indexHtml.trim(), 'utf8');
-      fs.writeFileSync(path.join(frontendDir, 'style.css'), (generatedCode.styleCss || "/* Project CSS */").trim(), 'utf8');
+      // Write Generated Source Code to Disk
+      fs.writeFileSync(path.join(backendDir, 'server.js'), generatedServerJs.trim(), 'utf8');
+      fs.writeFileSync(path.join(frontendDir, 'index.html'), generatedIndexHtml.trim(), 'utf8');
+      fs.writeFileSync(path.join(frontendDir, 'style.css'), "/* Clean Modern Typography & Polish */\nbody { font-family: 'Plus Jakarta Sans', sans-serif; }", 'utf8');
 
       // Install dependencies fast
       try {
