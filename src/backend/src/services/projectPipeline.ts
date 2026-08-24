@@ -171,7 +171,7 @@ Formatkan: Tech Stack (Node.js/Express + Tailwind), Database Model (${options?.s
 
     // 3. Fullstack Code Scaffolding Task (Clean Separation: src/frontend & src/backend)
     const devScaffoldTask = (async () => {
-      await logActivity('CODE_GEN', `Fullstack Dev (Devron) membangun source code Express API & Frontend UI modern`, 'EMP-DEV', projectId);
+      await logActivity('CODE_GEN', `Fullstack Dev (Devron) & UI Engineer (Anya) men-generate kodingan Express API & Frontend UI dinamis`, 'EMP-DEV', projectId);
 
       // Backend package.json
       const backendPackageJson: any = {
@@ -206,441 +206,96 @@ Formatkan: Tech Stack (Node.js/Express + Tailwind), Database Model (${options?.s
       };
       fs.writeFileSync(path.join(projectDir, 'package.json'), JSON.stringify(rootPackageJson, null, 2));
 
-      // Theme Palette Definition
-      const selectedTheme = options?.theme || 'cyber';
-      let themeBg = 'bg-slate-950';
-      let themePrimaryGrad = 'from-cyan-500 to-indigo-600';
-      let themeAccentText = 'text-cyan-400';
-      let themeBorderAccent = 'border-cyan-500/30';
-      let themeBodyBg = '#0b0f19';
-      let isLight = false;
+      // AI-Powered Dynamic Domain-Specific Code Generation
+      const codeGenPrompt = `Kamu adalah Lead Fullstack Engineer (Devron) dan UI/UX Designer (Anya).
+Tugasmu: Buatkan FULL SOURCE CODE siap pakai, fungsional, interaktif, dan berestetika modern kelas dunia untuk proyek berikut:
 
-      if (selectedTheme === 'emerald') {
-        themeBg = 'bg-slate-950';
-        themePrimaryGrad = 'from-emerald-500 to-teal-600';
-        themeAccentText = 'text-emerald-400';
-        themeBorderAccent = 'border-emerald-500/30';
-        themeBodyBg = '#061311';
-      } else if (selectedTheme === 'indigo') {
-        themeBg = 'bg-slate-950';
-        themePrimaryGrad = 'from-indigo-500 to-purple-600';
-        themeAccentText = 'text-indigo-400';
-        themeBorderAccent = 'border-indigo-500/30';
-        themeBodyBg = '#0f0e1d';
-      } else if (selectedTheme === 'light') {
-        themeBg = 'bg-slate-50';
-        themePrimaryGrad = 'from-blue-600 to-indigo-600';
-        themeAccentText = 'text-blue-600';
-        themeBorderAccent = 'border-blue-500/30';
-        themeBodyBg = '#f8fafc';
-        isLight = true;
+Nama Proyek: "${project.title}"
+Deskripsi & Tujuan: "${project.description || project.goal}"
+Spesifikasi PRD:
+${prdContent.slice(0, 3000)}
+
+Pilihan Arsitektur:
+- Port: process.env.PORT || ${port}
+- Tema Visual: ${options?.theme || 'cyber'} (Gunakan Tailwind CSS, Lucide Icons, Plus Jakarta Sans, glassmorphism)
+- Autentikasi: ${options?.includeAuth ? 'Aktifkan sistem JWT/Login' : 'Bypass / Direct mode'}
+- Storage Model: ${options?.storageType || 'memory'}
+
+PETUNJUK DOMAIN KHUSUS (SANGAT PENTING):
+1. JANGAN MEMBUAT APLIKASI TODO-LIST GENERIK! Buat struktur data, field, endpoint, dan antarmuka yang SPESIFIK SESUAI DOMAIN PROYEK:
+   - Jika POS / Cafe / Resto: Produk menu kopi/makanan, harga (IDR), status pesanan (BREWING, READY, SERVED), kasir/meja, payment method.
+   - Jika Laundry: Layanan (Kiloan, Bedcover, Cuci Kering), status cucian (MENUNGGU, DICUCI, DISETRIKA, SELESAI), berat (KG), nama pelanggan.
+   - Jika Klinik / Kesehatan: Pasien, dokter/poli, nomor antrean, diagnosa/keluhan, status antrean (MENUNGGU, DIPERIKSA, SELESAI).
+   - Jika Logistik / Ekspedisi: Resi pengiriman, kurir, asal-tujuan, status paket (TRANSIT, OUT_FOR_DELIVERY, DELIVERED).
+   - Jika Keuangan / Slip Gaji / SaaS lain: Sesuaikan skema record dan alur kerja bisnis secara presisi.
+
+2. Kebutuhan File yang Dihasilkan:
+   a. "serverJs": Kode lengkap Node.js Express (CommonJS, require express, cors, path, dll). Sediakan data awal (3-5 baris dummy domain realistis), REST API lengkap (GET, POST, PATCH/PUT, DELETE), dan routing file static ../frontend.
+   b. "indexHtml": HTML5 lengkap (dari <!DOCTYPE html> sampai </html>), modern, responsif, Tailwind CSS (via CDN), Lucide Icons, header, KPI metric summary cards, filter/search bar, form input data domain, grid/list cards atau data table interaktif, modal/popup, dan fungsi Vanilla JS lengkap untuk memanggil API backend.
+   c. "styleCss": Styling tambahan glassmorphism, animasi pulse, dan font Plus Jakarta Sans.
+
+Output WAJIB berupa JSON valid murni (tanpa penjelasan markdown di luar JSON) dengan struktur:
+{
+  "serverJs": "...",
+  "indexHtml": "...",
+  "styleCss": "..."
+}`;
+
+      let generatedCode: any = null;
+      try {
+        const llmCodeRes = await callAgentLLM(
+          'EMP-DEV',
+          'Kamu adalah Principal Fullstack Engineer. Selalu hasilkan JSON valid dengan field serverJs, indexHtml, dan styleCss.',
+          codeGenPrompt,
+          projectId
+        );
+
+        const match = llmCodeRes.content.match(/\{[\s\S]*\}/);
+        if (match) {
+          generatedCode = JSON.parse(match[0]);
+        }
+      } catch (err) {
+        console.warn(`[Dynamic CodeGen Warning for ${projectId}]:`, err);
       }
 
-      // Custom Uploaded Images Showcase
-      let customModulesHtml = '';
-      if (savedImages.length > 0) {
-        customModulesHtml = `
-    <!-- Custom Module & Uploaded Assets Showcase -->
-    <div class="glassmorphism p-5 rounded-2xl shadow-xl">
-      <div class="flex items-center gap-2 mb-3 ${isLight ? 'text-slate-900' : 'text-white'} font-bold text-sm">
-        <i data-lucide="image" class="w-4 h-4 ${themeAccentText}"></i>
-        <span>Modul & Aset Visual Proyek</span>
-      </div>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        ${savedImages.map(img => `
-        <div class="${isLight ? 'bg-white border-slate-200' : 'bg-slate-900/80 border-slate-800'} border rounded-xl p-2.5 flex flex-col items-center text-center gap-2 transition hover:border-cyan-500/50">
-          <div class="w-full h-24 rounded-lg overflow-hidden ${isLight ? 'bg-slate-100' : 'bg-slate-950'} flex items-center justify-center border ${isLight ? 'border-slate-200' : 'border-slate-800'}">
-            <img src="${img.relPath}" alt="${img.menuLabel}" class="w-full h-full object-cover">
-          </div>
-          <span class="text-xs font-semibold ${isLight ? 'text-slate-800' : 'text-slate-200'} truncate w-full">${img.menuLabel}</span>
-        </div>`).join('')}
-      </div>
-    </div>`;
-      }
+      // Domain-Aware Fallback if LLM Generation fails or empty
+      if (!generatedCode || !generatedCode.serverJs || !generatedCode.indexHtml) {
+        console.log(`[Dynamic CodeGen] Using domain-adapted fallback generator for ${project.title}`);
+        const domainTitle = project.title.toLowerCase();
+        const isPos = domainTitle.includes('pos') || domainTitle.includes('kopi') || domainTitle.includes('cafe') || domainTitle.includes('resto');
+        const isLaundry = domainTitle.includes('laundry') || domainTitle.includes('cuci');
+        const isClinic = domainTitle.includes('medik') || domainTitle.includes('klinik') || domainTitle.includes('antrean') || domainTitle.includes('pasien');
 
-      // Optional Auth UI Modal & Controls
-      const authHeaderButtons = options?.includeAuth ? `
-      <div id="authSection" class="flex items-center gap-2">
-        <span id="userBadge" class="hidden text-xs font-semibold px-2.5 py-1 rounded-lg ${isLight ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-slate-300'}"></span>
-        <button id="authBtn" onclick="openAuthModal()" class="px-3 py-1.5 rounded-lg bg-gradient-to-r ${themePrimaryGrad} text-white text-xs font-bold shadow transition hover:opacity-90">
-          Login / Register
-        </button>
-      </div>` : '';
+        let dataEndpointName = 'items';
+        let initialData = [];
 
-      const authModalHtml = options?.includeAuth ? `
-  <!-- Auth Modal -->
-  <div id="authModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
-    <div class="glassmorphism w-full max-w-sm p-6 rounded-2xl shadow-2xl">
-      <div class="flex justify-between items-center mb-4">
-        <h3 id="authModalTitle" class="text-base font-bold ${isLight ? 'text-slate-900' : 'text-white'}">Login Akun</h3>
-        <button onclick="closeAuthModal()" class="text-slate-400 hover:text-slate-200 text-xl font-bold">&times;</button>
-      </div>
-      <form id="authForm" onsubmit="handleAuthSubmit(event)" class="space-y-3">
-        <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Username</label>
-          <input type="text" id="authUsername" required class="w-full ${isLight ? 'bg-slate-100 text-slate-900' : 'bg-slate-900 text-white'} border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Password</label>
-          <input type="password" id="authPassword" required class="w-full ${isLight ? 'bg-slate-100 text-slate-900' : 'bg-slate-900 text-white'} border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
-        </div>
-        <button type="submit" class="w-full bg-gradient-to-r ${themePrimaryGrad} text-white font-bold py-2.5 rounded-xl text-sm transition">
-          Submit
-        </button>
-      </form>
-      <div class="text-center mt-3">
-        <button type="button" onclick="toggleAuthMode()" id="toggleAuthModeBtn" class="text-xs ${themeAccentText} hover:underline">
-          Belum punya akun? Daftar di sini
-        </button>
-      </div>
-    </div>
-  </div>` : '';
+        if (isPos) {
+          dataEndpointName = 'orders';
+          initialData = [
+            { id: 1, item: 'Kopi Susu Aren Signature', category: 'Coffee', price: 22000, customer: 'Budi Santoso', status: 'BREWING', created_at: new Date().toISOString() },
+            { id: 2, item: 'Matcha Latte Oatmilk', category: 'Non-Coffee', price: 28000, customer: 'Siti Rahma', status: 'READY', created_at: new Date().toISOString() },
+            { id: 3, item: 'Croissant Butter Pastry', category: 'Bakery', price: 18000, customer: 'Dimas', status: 'SERVED', created_at: new Date().toISOString() }
+          ];
+        } else if (isLaundry) {
+          dataEndpointName = 'orders';
+          initialData = [
+            { id: 1, customer: 'Budi Santoso', service: 'Cuci Komplit Kilat', weight: 4.5, total: 36000, status: 'PROSES_CUCI', created_at: new Date().toISOString() },
+            { id: 2, customer: 'Ibu Ratna', service: 'Bedcover King & Selimut', weight: 6.0, total: 60000, status: 'SIAP_AMBIL', created_at: new Date().toISOString() }
+          ];
+        } else if (isClinic) {
+          dataEndpointName = 'patients';
+          initialData = [
+            { id: 1, name: 'Ahmad Fauzi', queue_no: 'A-001', poly: 'Poli Umum', complaint: 'Demam & Flu', status: 'SEDANG_DIPERIKSA', created_at: new Date().toISOString() },
+            { id: 2, name: 'Dewi Lestari', queue_no: 'A-002', poly: 'Poli Gigi', complaint: 'Konsultasi Behel', status: 'MENUNGGU', created_at: new Date().toISOString() }
+          ];
+        } else {
+          initialData = [
+            { id: 1, title: 'Master Data Inisial 1', category: 'Operational', value: 150000, status: 'ACTIVE', created_at: new Date().toISOString() },
+            { id: 2, title: 'Master Data Inisial 2', category: 'Analytics', value: 320000, status: 'ACTIVE', created_at: new Date().toISOString() }
+          ];
+        }
 
-      // src/frontend/index.html
-      const frontendIndexHtml = `<!DOCTYPE html>
-<html lang="id" class="${isLight ? 'light' : 'dark'}">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${project.title} - Enterprise Autonomous Application</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body class="${isLight ? 'text-slate-900 bg-slate-50' : 'text-slate-100 bg-slate-950'} min-h-screen flex flex-col antialiased">
-  <!-- Top Navigation Bar -->
-  <header class="glassmorphism sticky top-0 z-40 px-6 py-4 border-b ${isLight ? 'border-slate-200 bg-white/80' : 'border-slate-800 bg-slate-950/80'} flex justify-between items-center">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr ${themePrimaryGrad} flex items-center justify-center text-white font-black shadow-lg shadow-cyan-500/20">
-        <i data-lucide="sparkles" class="w-5 h-5"></i>
-      </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <h1 class="text-base font-bold ${isLight ? 'text-slate-900' : 'text-white'} leading-tight">${project.title}</h1>
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            LIVE
-          </span>
-          <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-            ${selectedTheme.toUpperCase()}
-          </span>
-        </div>
-        <p class="text-xs text-slate-400">${project.description || 'Aplikasi otonom terintegrasi VirtuLabs Studio'}</p>
-      </div>
-    </div>
-    <div class="flex items-center gap-3">
-      ${authHeaderButtons}
-      <div class="text-right hidden sm:block ${isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-900/80 border-slate-800'} px-3 py-1.5 rounded-lg border">
-        <span class="text-[10px] text-slate-500 uppercase font-mono block">PORT</span>
-        <span class="text-xs font-mono font-bold ${themeAccentText}">${port}</span>
-      </div>
-      <button onclick="fetchItems()" class="p-2 rounded-lg ${isLight ? 'bg-slate-200 text-slate-700 hover:bg-slate-300' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} transition flex items-center gap-1.5 text-xs font-semibold">
-        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-        <span>Refresh</span>
-      </button>
-    </div>
-  </header>
-
-  <!-- Main Container -->
-  <main class="max-w-5xl w-full mx-auto p-4 sm:p-6 md:p-8 flex-1 flex flex-col gap-6">
-    ${customModulesHtml}
-
-    <!-- Metric Cards Summary -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <div class="glassmorphism p-4 rounded-xl flex items-center justify-between">
-        <div>
-          <span class="text-xs font-medium text-slate-400">Total Entri</span>
-          <h3 id="statTotal" class="text-2xl font-extrabold ${isLight ? 'text-slate-900' : 'text-white'} mt-0.5">0</h3>
-        </div>
-        <div class="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
-          <i data-lucide="layers" class="w-5 h-5"></i>
-        </div>
-      </div>
-
-      <div class="glassmorphism p-4 rounded-xl flex items-center justify-between">
-        <div>
-          <span class="text-xs font-medium text-slate-400">Aktif / Pending</span>
-          <h3 id="statActive" class="text-2xl font-extrabold text-amber-400 mt-0.5">0</h3>
-        </div>
-        <div class="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
-          <i data-lucide="clock" class="w-5 h-5"></i>
-        </div>
-      </div>
-
-      <div class="glassmorphism p-4 rounded-xl flex items-center justify-between">
-        <div>
-          <span class="text-xs font-medium text-slate-400">Selesai / Done</span>
-          <h3 id="statDone" class="text-2xl font-extrabold text-emerald-400 mt-0.5">0</h3>
-        </div>
-        <div class="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-          <i data-lucide="check-circle-2" class="w-5 h-5"></i>
-        </div>
-      </div>
-    </div>
-
-    <!-- Content Workspace -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 items-start">
-      <!-- Input Panel -->
-      <div class="glassmorphism p-5 rounded-2xl md:col-span-1 shadow-xl">
-        <div class="flex items-center gap-2 mb-4 ${isLight ? 'text-slate-900' : 'text-white'} font-bold text-sm">
-          <i data-lucide="plus-circle" class="w-4 h-4 ${themeAccentText}"></i>
-          <span>Tambah Entri Baru</span>
-        </div>
-        <form id="addForm" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1.5">Judul / Kegiatan <span class="text-red-400">*</span></label>
-            <input type="text" id="itemTitle" required placeholder="Contoh: Selesaikan PRD..." class="w-full ${isLight ? 'bg-white text-slate-900 border-slate-300' : 'bg-slate-900 text-white border-slate-700'} border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-cyan-500 transition">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1.5">Keterangan / Catatan</label>
-            <textarea id="itemDesc" rows="3" placeholder="Opsional detail tugas..." class="w-full ${isLight ? 'bg-white text-slate-900 border-slate-300' : 'bg-slate-900 text-white border-slate-700'} border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-cyan-500 transition"></textarea>
-          </div>
-          <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r ${themePrimaryGrad} hover:opacity-90 text-white font-bold py-2.5 rounded-xl text-sm transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2">
-            <i data-lucide="plus" class="w-4 h-4"></i>
-            <span>Simpan Entri</span>
-          </button>
-        </form>
-      </div>
-
-      <!-- Feed List Panel -->
-      <div class="glassmorphism p-5 rounded-2xl md:col-span-2 shadow-xl flex flex-col min-h-[380px]">
-        <div class="flex justify-between items-center mb-4">
-          <div class="flex items-center gap-2 ${isLight ? 'text-slate-900' : 'text-white'} font-bold text-sm">
-            <i data-lucide="list-checks" class="w-4 h-4 text-indigo-400"></i>
-            <span>Daftar Data & Aktivitas</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="setFilter('ALL')" id="filterAll" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-cyan-500/20 ${themeAccentText} ${themeBorderAccent} border">Semua</button>
-            <button onclick="setFilter('ACTIVE')" id="filterActive" class="px-2.5 py-1 rounded-lg text-xs font-semibold ${isLight ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-slate-400'} hover:text-white">Aktif</button>
-            <button onclick="setFilter('COMPLETED')" id="filterDone" class="px-2.5 py-1 rounded-lg text-xs font-semibold ${isLight ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-slate-400'} hover:text-white">Selesai</button>
-          </div>
-        </div>
-
-        <div id="itemsContainer" class="space-y-3 flex-1">
-          <div class="p-8 text-center text-slate-500 text-sm">Memuat data...</div>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  ${authModalHtml}
-  <script src="app.js"></script>
-</body>
-</html>`;
-      fs.writeFileSync(path.join(frontendDir, 'index.html'), frontendIndexHtml, 'utf8');
-
-      // src/frontend/style.css
-      const frontendStyleCss = `/* Custom Application Styling */
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: ${themeBodyBg};
-}
-.glassmorphism {
-  background: ${isLight ? 'rgba(255, 255, 255, 0.85)' : 'rgba(15, 23, 42, 0.75)'};
-  backdrop-filter: blur(12px);
-  border: 1px solid ${isLight ? 'rgba(226, 232, 240, 0.9)' : 'rgba(51, 65, 85, 0.6)'};
-}
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: ${isLight ? '#f1f5f9' : '#0f172a'};
-}
-::-webkit-scrollbar-thumb {
-  background: ${isLight ? '#cbd5e1' : '#334155'};
-  border-radius: 3px;
-}
-`;
-      fs.writeFileSync(path.join(frontendDir, 'style.css'), frontendStyleCss, 'utf8');
-
-      // src/frontend/app.js
-      const frontendAppJs = `// Client Application Logic
-let currentItems = [];
-let activeFilter = 'ALL';
-let isAuthModeLogin = true;
-let currentUser = localStorage.getItem('app_user') || null;
-
-function setFilter(f) {
-  activeFilter = f;
-  renderItems();
-}
-
-function openAuthModal() {
-  const modal = document.getElementById('authModal');
-  if (modal) modal.classList.remove('hidden');
-}
-
-function closeAuthModal() {
-  const modal = document.getElementById('authModal');
-  if (modal) modal.classList.add('hidden');
-}
-
-function toggleAuthMode() {
-  isAuthModeLogin = !isAuthModeLogin;
-  const title = document.getElementById('authModalTitle');
-  const toggleBtn = document.getElementById('toggleAuthModeBtn');
-  if (title) title.innerText = isAuthModeLogin ? 'Login Akun' : 'Daftar Akun Baru';
-  if (toggleBtn) toggleBtn.innerText = isAuthModeLogin ? 'Belum punya akun? Daftar di sini' : 'Sudah punya akun? Login di sini';
-}
-
-async function handleAuthSubmit(e) {
-  e.preventDefault();
-  const u = document.getElementById('authUsername').value;
-  const p = document.getElementById('authPassword').value;
-  const endpoint = isAuthModeLogin ? '/api/auth/login' : '/api/auth/register';
-
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: u, password: p })
-    });
-    const data = await res.json();
-    if (data.success) {
-      currentUser = data.username || u;
-      localStorage.setItem('app_user', currentUser);
-      if (data.token) localStorage.setItem('app_token', data.token);
-      updateUserUI();
-      closeAuthModal();
-      alert('Autentikasi Berhasil: Selamat Datang ' + currentUser + '!');
-    } else {
-      alert('Gagal: ' + (data.error || 'Terjadi kesalahan'));
-    }
-  } catch (err) {
-    alert('Error auth: ' + err.message);
-  }
-}
-
-function updateUserUI() {
-  const userBadge = document.getElementById('userBadge');
-  const authBtn = document.getElementById('authBtn');
-  if (currentUser) {
-    if (userBadge) {
-      userBadge.innerText = '👤 ' + currentUser;
-      userBadge.classList.remove('hidden');
-    }
-    if (authBtn) {
-      authBtn.innerText = 'Logout';
-      authBtn.onclick = () => {
-        localStorage.removeItem('app_user');
-        localStorage.removeItem('app_token');
-        currentUser = null;
-        updateUserUI();
-      };
-    }
-  } else {
-    if (userBadge) userBadge.classList.add('hidden');
-    if (authBtn) {
-      authBtn.innerText = 'Login / Register';
-      authBtn.onclick = openAuthModal;
-    }
-  }
-}
-
-async function fetchItems() {
-  try {
-    const res = await fetch('/api/items');
-    const json = await res.json();
-    currentItems = json.data || [];
-    updateStats();
-    renderItems();
-  } catch (err) {
-    console.error('Fetch error:', err);
-  }
-}
-
-function updateStats() {
-  const total = currentItems.length;
-  const active = currentItems.filter(i => i.status === 'ACTIVE').length;
-  const done = currentItems.filter(i => i.status === 'COMPLETED').length;
-  document.getElementById('statTotal').innerText = total;
-  document.getElementById('statActive').innerText = active;
-  document.getElementById('statDone').innerText = done;
-}
-
-function renderItems() {
-  const container = document.getElementById('itemsContainer');
-  let filtered = currentItems;
-  if (activeFilter === 'ACTIVE') filtered = currentItems.filter(i => i.status === 'ACTIVE');
-  if (activeFilter === 'COMPLETED') filtered = currentItems.filter(i => i.status === 'COMPLETED');
-
-  if (filtered.length === 0) {
-    container.innerHTML = '<div class="p-8 text-center text-slate-500 text-sm flex flex-col items-center gap-2"><i data-lucide="inbox" class="w-8 h-8 opacity-40"></i><span>Belum ada data pada kategori ini.</span></div>';
-    if (window.lucide) lucide.createIcons();
-    return;
-  }
-
-  container.innerHTML = filtered.map(item => {
-    const isDone = item.status === 'COMPLETED';
-    return '<div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/80 flex items-center justify-between gap-3 transition hover:border-slate-700">' +
-      '<div class="flex items-center gap-3 overflow-hidden">' +
-        '<button onclick="toggleItemStatus(' + item.id + ')" class="w-6 h-6 rounded-lg border flex items-center justify-center transition ' + (isDone ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' : 'border-slate-700 text-transparent hover:border-slate-500') + '">' +
-          '<i data-lucide="check" class="w-3.5 h-3.5"></i>' +
-        '</button>' +
-        '<div class="truncate">' +
-          '<p class="text-sm font-semibold ' + (isDone ? 'line-through text-slate-500' : 'text-slate-100') + '">' + item.title + '</p>' +
-          (item.description ? '<p class="text-xs text-slate-400 mt-0.5 truncate">' + item.description + '</p>' : '') +
-        '</div>' +
-      '</div>' +
-      '<div class="flex items-center gap-2 flex-shrink-0">' +
-        '<button onclick="deleteItem(' + item.id + ')" class="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition" title="Hapus">' +
-          '<i data-lucide="trash-2" class="w-4 h-4"></i>' +
-        '</button>' +
-      '</div>' +
-    '</div>';
-  }).join('');
-  if (window.lucide) lucide.createIcons();
-}
-
-async function toggleItemStatus(id) {
-  const item = currentItems.find(i => i.id === id);
-  if (!item) return;
-  const newStatus = item.status === 'COMPLETED' ? 'ACTIVE' : 'COMPLETED';
-  await fetch('/api/items/' + id, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status: newStatus })
-  });
-  fetchItems();
-}
-
-async function deleteItem(id) {
-  await fetch('/api/items/' + id, { method: 'DELETE' });
-  fetchItems();
-}
-
-document.getElementById('addForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const titleInput = document.getElementById('itemTitle');
-  const descInput = document.getElementById('itemDesc');
-  if (!titleInput.value.trim()) return;
-
-  await fetch('/api/items', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      title: titleInput.value.trim(),
-      description: descInput.value.trim()
-    })
-  });
-
-  titleInput.value = '';
-  descInput.value = '';
-  fetchItems();
-});
-
-updateUserUI();
-fetchItems();
-if (window.lucide) lucide.createIcons();
-`;
-      fs.writeFileSync(path.join(frontendDir, 'app.js'), frontendAppJs, 'utf8');
-
-      // src/backend/server.js (Express API + Auth + SQLite/Memory + Static Hosting)
-      const backendServerJs = `const express = require('express');
+        const fallbackServerJs = `const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
@@ -651,98 +306,234 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-// Storage Engine
-let items = [
-  { id: 1, title: 'Inisialisasi Project ${project.title}', description: 'Cek fungsionalitas sistem otonom', status: 'COMPLETED', created_at: new Date().toISOString() },
-  { id: 2, title: 'Uji Coba Fitur Tambah & Hapus', description: 'Pastikan integrasi CRUD berjalan mulus', status: 'ACTIVE', created_at: new Date().toISOString() }
-];
+let dataset = ${JSON.stringify(initialData, null, 2)};
 
-let users = [
-  { id: 1, username: 'admin', password: 'password123', role: 'ADMIN' }
-];
+app.get('/health', (req, res) => res.json({ status: 'OK', project: '${project.title}', port: PORT }));
+app.get('/api/${dataEndpointName}', (req, res) => res.json({ success: true, data: dataset }));
+app.get('/api/items', (req, res) => res.json({ success: true, data: dataset }));
 
-// Health Check
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    project: '${project.title}', 
-    port: PORT, 
-    auth_enabled: ${Boolean(options?.includeAuth)},
-    storage: '${options?.storageType || 'memory'}',
-    theme: '${selectedTheme}',
-    timestamp: new Date().toISOString() 
-  });
+app.post('/api/${dataEndpointName}', (req, res) => {
+  const newRow = { id: dataset.length + 1, ...req.body, created_at: new Date().toISOString() };
+  dataset.unshift(newRow);
+  res.status(201).json({ success: true, data: newRow });
 });
-
-// Authentication Endpoints (if enabled)
-${options?.includeAuth ? `
-app.post('/api/auth/register', (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
-  const existing = users.find(u => u.username === username);
-  if (existing) return res.status(400).json({ error: 'Username already exists' });
-
-  const newUser = { id: users.length + 1, username, password, role: 'USER' };
-  users.push(newUser);
-  res.status(201).json({ success: true, message: 'Registrasi berhasil', username: newUser.username, token: 'jwt-dummy-token-' + Date.now() });
-});
-
-app.post('/api/auth/login', (req, res) => {
-  const { username, password } = req.body;
-  const user = users.find(u => u.username === username && u.password === password);
-  if (!user) return res.status(401).json({ error: 'Kredensial username/password salah' });
-
-  res.json({ success: true, message: 'Login berhasil', username: user.username, token: 'jwt-dummy-token-' + Date.now() });
-});
-` : ''}
-
-// Data API Endpoints
-app.get('/api/items', (req, res) => {
-  res.json({ success: true, count: items.length, data: items });
-});
-
 app.post('/api/items', (req, res) => {
-  const { title, description } = req.body;
-  const newItem = {
-    id: items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1,
-    title: title || 'Item Baru',
-    description: description || '',
-    status: 'ACTIVE',
-    created_at: new Date().toISOString()
-  };
-  items.push(newItem);
-  res.status(201).json({ success: true, message: 'Item berhasil dibuat', data: newItem });
+  const newRow = { id: dataset.length + 1, ...req.body, created_at: new Date().toISOString() };
+  dataset.unshift(newRow);
+  res.status(201).json({ success: true, data: newRow });
 });
 
-app.patch('/api/items/:id', (req, res) => {
+app.patch('/api/${dataEndpointName}/:id', (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const { title, description, status } = req.body;
-  const item = items.find(i => i.id === id);
-  if (!item) return res.status(404).json({ error: 'Item not found' });
-
-  if (title !== undefined) item.title = title;
-  if (description !== undefined) item.description = description;
-  if (status !== undefined) item.status = status;
-
-  res.json({ success: true, message: 'Item berhasil diperbarui', data: item });
+  const row = dataset.find(r => r.id === id);
+  if (!row) return res.status(404).json({ error: 'Record not found' });
+  Object.assign(row, req.body);
+  res.json({ success: true, data: row });
 });
 
-app.delete('/api/items/:id', (req, res) => {
+app.delete('/api/${dataEndpointName}/:id', (req, res) => {
   const id = parseInt(req.params.id, 10);
-  items = items.filter(i => i.id !== id);
-  res.json({ success: true, message: 'Item berhasil dihapus' });
+  dataset = dataset.filter(r => r.id !== id);
+  res.json({ success: true, message: 'Record deleted' });
 });
 
-// Fallback SPA routing
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(\`[Live App: ${project.title}] running at http://localhost:\${PORT}\`);
+  console.log('[Live Micro-App] ${project.title} running on port ' + PORT);
 });
 `;
-      fs.writeFileSync(path.join(backendDir, 'server.js'), backendServerJs, 'utf8');
+
+        const fallbackIndexHtml = `<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${project.title} - Enterprise Autonomous Application</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0b0f19; }
+    .glassmorphism { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(56, 189, 248, 0.2); }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col antialiased">
+  <header class="glassmorphism sticky top-0 z-40 px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white font-black shadow-lg shadow-cyan-500/20">
+        <i data-lucide="sparkles" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base font-bold text-white leading-tight">${project.title}</h1>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            LIVE
+          </span>
+        </div>
+        <p class="text-xs text-slate-400">${project.description || 'Aplikasi otonom enterprise siap pakai'}</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800 text-right">
+        <span class="text-[10px] text-slate-400 font-mono block">PORT</span>
+        <span class="text-xs font-mono font-bold text-cyan-400">${port}</span>
+      </div>
+      <button onclick="loadData()" class="p-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex items-center gap-1.5 text-xs font-semibold">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-5xl w-full mx-auto p-4 sm:p-6 md:p-8 flex-1 flex flex-col gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="glassmorphism p-4 rounded-xl flex items-center justify-between">
+        <div>
+          <span class="text-xs font-medium text-slate-400">Total Transaksi</span>
+          <h3 id="statTotal" class="text-2xl font-extrabold text-white mt-0.5">0</h3>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+          <i data-lucide="layers" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <div class="glassmorphism p-4 rounded-xl flex items-center justify-between">
+        <div>
+          <span class="text-xs font-medium text-slate-400">Aktif / Berjalan</span>
+          <h3 id="statActive" class="text-2xl font-extrabold text-amber-400 mt-0.5">0</h3>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
+          <i data-lucide="clock" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <div class="glassmorphism p-4 rounded-xl flex items-center justify-between">
+        <div>
+          <span class="text-xs font-medium text-slate-400">Selesai / Ready</span>
+          <h3 id="statDone" class="text-2xl font-extrabold text-emerald-400 mt-0.5">0</h3>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+          <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 items-start">
+      <div class="glassmorphism p-5 rounded-2xl md:col-span-1 shadow-xl">
+        <div class="flex items-center gap-2 mb-4 text-white font-bold text-sm">
+          <i data-lucide="plus-circle" class="w-4 h-4 text-cyan-400"></i>
+          <span>Entri Transaksi Baru</span>
+        </div>
+        <form id="recordForm" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Nama / Item Entri</label>
+            <input type="text" id="inputTitle" required placeholder="Masukkan data..." class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Catatan / Detail Tambahan</label>
+            <textarea id="inputDesc" rows="2" placeholder="Keterangan opsional..." class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 resize-none"></textarea>
+          </div>
+          <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm transition hover:opacity-90 shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>Simpan Entri</span>
+          </button>
+        </form>
+      </div>
+
+      <div class="glassmorphism p-5 rounded-2xl md:col-span-2 shadow-xl flex flex-col gap-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="list" class="w-4 h-4 text-cyan-400"></i>
+            <span class="font-bold text-sm text-white">Daftar Data Live</span>
+          </div>
+          <input type="text" id="searchInput" placeholder="Cari data..." oninput="renderTable()" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none">
+        </div>
+
+        <div id="dataList" class="space-y-2.5">
+          <!-- Dynamic Content -->
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let dataset = [];
+    async function loadData() {
+      try {
+        const res = await fetch('/api/${dataEndpointName}');
+        const json = await res.json();
+        dataset = json.data || [];
+        updateStats();
+        renderTable();
+      } catch (e) {
+        console.error('Load data error:', e);
+      }
+    }
+
+    function updateStats() {
+      document.getElementById('statTotal').innerText = dataset.length;
+      document.getElementById('statActive').innerText = dataset.filter(x => x.status !== 'DONE' && x.status !== 'SERVED' && x.status !== 'SELESAI').length;
+      document.getElementById('statDone').innerText = dataset.filter(x => x.status === 'DONE' || x.status === 'SERVED' || x.status === 'SELESAI').length;
+    }
+
+    function renderTable() {
+      const list = document.getElementById('dataList');
+      const search = (document.getElementById('searchInput').value || '').toLowerCase();
+      const filtered = dataset.filter(d => JSON.stringify(d).toLowerCase().includes(search));
+
+      if (filtered.length === 0) {
+        list.innerHTML = '<div class="p-8 text-center text-slate-500 text-sm">Belum ada data rekaman.</div>';
+        return;
+      }
+
+      list.innerHTML = filtered.map(item => {
+        const title = item.item || item.name || item.title || item.customer || 'Record #' + item.id;
+        const sub = item.poly || item.service || item.category || item.complaint || item.description || '';
+        return '<div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">' +
+          '<div><h4 class="font-bold text-sm text-white">' + title + '</h4>' +
+          (sub ? '<p class="text-xs text-slate-400 mt-0.5">' + sub + '</p>' : '') + '</div>' +
+          '<div class="flex items-center gap-2"><span class="px-2 py-0.5 text-[10px] font-bold rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">' + (item.status || 'ACTIVE') + '</span></div>' +
+          '</div>';
+      }).join('');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    document.getElementById('recordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('inputTitle').value;
+      const desc = document.getElementById('inputDesc').value;
+      await fetch('/api/${dataEndpointName}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item: title, title, description: desc, status: 'ACTIVE' })
+      });
+      document.getElementById('inputTitle').value = '';
+      document.getElementById('inputDesc').value = '';
+      loadData();
+    });
+
+    loadData();
+  </script>
+</body>
+</html>`;
+
+        generatedCode = {
+          serverJs: fallbackServerJs,
+          indexHtml: fallbackIndexHtml,
+          styleCss: "/* Modern Studio Stylesheet */\nbody { font-family: 'Plus Jakarta Sans', sans-serif; }"
+        };
+      }
+
+      // Write Files to Destination Directories
+      fs.writeFileSync(path.join(backendDir, 'server.js'), generatedCode.serverJs.trim(), 'utf8');
+      fs.writeFileSync(path.join(frontendDir, 'index.html'), generatedCode.indexHtml.trim(), 'utf8');
+      fs.writeFileSync(path.join(frontendDir, 'style.css'), (generatedCode.styleCss || "/* Project CSS */").trim(), 'utf8');
 
       // Install dependencies fast
       try {

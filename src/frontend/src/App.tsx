@@ -410,12 +410,28 @@ export default function App() {
   };
 
   const handleScanIdea = async () => {
+    const activeToken = authToken || localStorage.getItem('company_os_token');
+    if (!activeToken) {
+      alert('Silakan login terlebih dahulu untuk melakukan market scan ide bisnis.');
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     setIsScanning(true);
     try {
-      const res = await fetch(`${API_BASE}/ideas/scan`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/ideas/scan`, { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${activeToken}`
+        }
+      });
       if (res.ok) {
         const newIdea = await res.json();
         setIdeas(prev => [newIdea, ...prev]);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Gagal melakukan scan ide baru.');
       }
     } catch (e) {
       console.error('Scan error:', e);

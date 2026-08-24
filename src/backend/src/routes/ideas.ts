@@ -35,11 +35,15 @@ router.get('/', authenticateUser, async (req, res) => {
   }
 });
 
-// Scan market & auto-generate new business idea with creator's user_id
+// Scan market & auto-generate new business idea with creator's user_id (Strict Multi-Tenant Auth)
 router.post('/scan', authenticateUser, async (req, res) => {
   try {
     const user = (req as any).user;
-    const creatorUserId = user ? user.id : 'USR-OWNER-001';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+    }
+
+    const creatorUserId = user.id;
 
     const scanPrompt = `Kamu adalah Lead Market Researcher (Dr. Aris).
 Lakukan market scan dan temukan 1 ide produk/software SaaS/micro-tool inovatif yang dibutuhkan pasar saat ini.
