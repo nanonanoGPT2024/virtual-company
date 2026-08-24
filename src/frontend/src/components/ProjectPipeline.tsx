@@ -175,9 +175,16 @@ export default function ProjectPipeline({
   const [newProjTheme, setNewProjTheme] = useState<'cyber' | 'emerald' | 'indigo' | 'light'>('cyber');
   const [newProjIncludeAuth, setNewProjIncludeAuth] = useState<boolean>(true);
   const [newProjStorageType, setNewProjStorageType] = useState<'memory' | 'sqlite'>('memory');
+  const [newProjRequireApproval, setNewProjRequireApproval] = useState<boolean>(false);
   const [uploadedImages, setUploadedImages] = useState<Array<{ name: string; menuLabel: string; base64: string; mimeType: string; previewUrl: string }>>([]);
   const [attachedDocs, setAttachedDocs] = useState<Array<{ name: string; base64: string }>>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Approval Gate Action State
+  const [approvingProjectId, setApprovingProjectId] = useState<string | null>(null);
+  const [revisionFeedback, setRevisionFeedback] = useState<string>('');
+  const [isRevisionModalOpen, setIsRevisionModalOpen] = useState<boolean>(false);
+  const [revisingProjectId, setRevisingProjectId] = useState<string | null>(null);
 
   // AI Auto-Enrich Spec State
   const [isEnriching, setIsEnriching] = useState<boolean>(false);
@@ -390,6 +397,7 @@ export default function ProjectPipeline({
           theme: newProjTheme,
           includeAuth: newProjIncludeAuth,
           storageType: newProjStorageType,
+          requireApproval: newProjRequireApproval,
           attachedDocs: attachedDocs.map(d => ({ name: d.name, base64: d.base64 })),
           images: uploadedImages.map(img => ({
             name: img.name,
@@ -478,6 +486,57 @@ export default function ProjectPipeline({
     };
   };
 
+  const handleApproveProject = async (projId: string) => {
+    setApprovingProjectId(projId);
+    try {
+      const token = localStorage.getItem('company_os_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${apiBase}/projects/${projId}/approve`, {
+        method: 'POST',
+        headers
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (onProjectCreated) onProjectCreated();
+      } else {
+        alert(data.error || 'Gagal menyetujui proyek');
+      }
+    } catch (e: any) {
+      alert('Error approval: ' + e.message);
+    } finally {
+      setApprovingProjectId(null);
+    }
+  };
+
+  const handleRequestRevisionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!revisingProjectId || !revisionFeedback.trim()) return;
+
+    try {
+      const token = localStorage.getItem('company_os_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${apiBase}/projects/${revisingProjectId}/request-spec-revision`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ feedback: revisionFeedback })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setIsRevisionModalOpen(false);
+        setRevisionFeedback('');
+        setRevisingProjectId(null);
+        if (onProjectCreated) onProjectCreated();
+      } else {
+        alert(data.error || 'Gagal meminta revisi spesifikasi');
+      }
+    } catch (e: any) {
+      alert('Error revision: ' + e.message);
+    }
+  };
   const rawSelectedProject = projects.find(p => p.id === selectedProjectId) || null;
   const selectedProject = selectedProjectDetail?.project 
     ? {
@@ -798,6 +857,77 @@ export default function ProjectPipeline({
                         {project.description || 'Tidak ada deskripsi project.'}
                       </p>
 
+                      {/* Milestone Approval Gate Banner if Waiting Approval */}
+                      {project.status === 'WAITING_APPROVAL' && (
+                        <div 
+                          onClick={e => e.stopPropagation()}
+                          style={{
+                            backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                            border: '1px solid rgba(234, 179, 8, 0.35)',
+                            borderRadius: '0.625rem',
+                            padding: '0.75rem',
+                            marginBottom: '1rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.5rem'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', fontWeight: 800, color: '#facc15' }}>
+                            <Clock size={14} />
+                            <span>Menunggu Persetujuan Klien (Sign-Off PRD)</span>
+                          </div>
+                          <p style={{ fontSize: '0.75rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>
+                            Dokumen PRD & Spesifikasi telah siap. Silakan review dan berikan persetujuan untuk memulai fase koding.
+                          </p>
+
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                            <button
+                              type="button"
+                              disabled={approvingProjectId === project.id}
+                              onClick={() => handleApproveProject(project.id)}
+                              style={{
+                                flex: 1,
+                                backgroundColor: '#10b981',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '0.4rem 0.6rem',
+                                borderRadius: '0.375rem',
+                                fontSize: '0.75rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.3rem'
+                              }}
+                            >
+                              <CheckCircle2 size={13} />
+                              {approvingProjectId === project.id ? 'Memproses...' : 'Setujui & Mulai Koding'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRevisingProjectId(project.id);
+                                setIsRevisionModalOpen(true);
+                              }}
+                              style={{
+                                backgroundColor: '#1e293b',
+                                color: '#facc15',
+                                border: '1px solid rgba(234, 179, 8, 0.3)',
+                                padding: '0.4rem 0.6rem',
+                                borderRadius: '0.375rem',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Minta Revisi
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Instant Public Tunnel Badge / Action on Card */}
                       <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                         {project.tunnel_url ? (
@@ -949,6 +1079,78 @@ export default function ProjectPipeline({
           />
         ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Milestone Approval Gate Banner on Detail View */}
+          {selectedProject.status === 'WAITING_APPROVAL' && (
+            <div 
+              style={{
+                backgroundColor: 'rgba(234, 179, 8, 0.15)',
+                border: '1px solid rgba(234, 179, 8, 0.4)',
+                borderRadius: '0.75rem',
+                padding: '1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '1rem'
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#facc15', fontWeight: 800, fontSize: '1rem', marginBottom: '0.25rem' }}>
+                  <Clock size={18} />
+                  <span>Tahap Review: Menunggu Sign-Off / Persetujuan Klien</span>
+                </div>
+                <p style={{ fontSize: '0.85rem', color: '#cbd5e1', margin: 0 }}>
+                  Dokumen <strong>01_PRD.md</strong> telah selesai disusun oleh tim Sarah (PM). Periksa rincian pada tab dokumen di bawah sebelum memulai fase coding.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  disabled={approvingProjectId === selectedProject.id}
+                  onClick={() => handleApproveProject(selectedProject.id)}
+                  style={{
+                    backgroundColor: '#10b981',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '0.55rem 1.25rem',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.85rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    boxShadow: '0 2px 6px rgba(16, 185, 129, 0.35)'
+                  }}
+                >
+                  <CheckCircle2 size={16} />
+                  {approvingProjectId === selectedProject.id ? 'Memproses...' : 'Setujui & Mulai Koding'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRevisingProjectId(selectedProject.id);
+                    setIsRevisionModalOpen(true);
+                  }}
+                  style={{
+                    backgroundColor: '#1e293b',
+                    color: '#facc15',
+                    border: '1px solid rgba(234, 179, 8, 0.4)',
+                    padding: '0.55rem 1.1rem',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Minta Revisi Spec
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Top Bar Navigation & Info */}
           <div className="card" style={{ margin: 0, padding: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
@@ -1837,29 +2039,41 @@ export default function ProjectPipeline({
                 </div>
               </div>
 
-              {/* 3. Tech Stack & Auth Options */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', padding: '0.75rem', backgroundColor: '#090d16', borderRadius: '0.5rem', border: '1px solid #1e293b' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#cbd5e1', cursor: 'pointer' }}>
+              {/* 3. Tech Stack, Auth & Milestone Approval Options */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', padding: '0.75rem', backgroundColor: '#090d16', borderRadius: '0.5rem', border: '1px solid #1e293b' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={newProjIncludeAuth}
+                      onChange={(e) => setNewProjIncludeAuth(e.target.checked)}
+                      style={{ width: '15px', height: '15px', accentColor: '#0284c7' }}
+                    />
+                    <span>🔐 Sertakan JWT Auth (Login/Register)</span>
+                  </label>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Storage:</span>
+                    <select
+                      value={newProjStorageType}
+                      onChange={(e) => setNewProjStorageType(e.target.value as any)}
+                      style={{ backgroundColor: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px', outline: 'none' }}
+                    >
+                      <option value="memory">In-Memory Store</option>
+                      <option value="sqlite">SQLite Database</option>
+                    </select>
+                  </div>
+                </div>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#facc15', cursor: 'pointer', borderTop: '1px solid #1e293b', paddingTop: '0.5rem' }}>
                   <input
                     type="checkbox"
-                    checked={newProjIncludeAuth}
-                    onChange={(e) => setNewProjIncludeAuth(e.target.checked)}
-                    style={{ width: '15px', height: '15px', accentColor: '#0284c7' }}
+                    checked={newProjRequireApproval}
+                    onChange={(e) => setNewProjRequireApproval(e.target.checked)}
+                    style={{ width: '15px', height: '15px', accentColor: '#eab308' }}
                   />
-                  <span>🔐 Sertakan JWT Auth (Login/Register)</span>
+                  <span>✍️ Mode Approval & Sign-Off (Review PRD & Spesifikasi sebelum koding dimulai)</span>
                 </label>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Storage:</span>
-                  <select
-                    value={newProjStorageType}
-                    onChange={(e) => setNewProjStorageType(e.target.value as any)}
-                    style={{ backgroundColor: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px', outline: 'none' }}
-                  >
-                    <option value="memory">In-Memory Store</option>
-                    <option value="sqlite">SQLite Database</option>
-                  </select>
-                </div>
               </div>
 
               {/* 4. Lampirkan Dokumen Referensi (.docx / .pdf / .txt) */}
@@ -2039,6 +2253,104 @@ export default function ProjectPipeline({
                   }}
                 >
                   {isSubmitting ? 'Membuat Project...' : 'Mulai Eksekusi Project'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: MINTA REVISI SPESIFIKASI / PRD */}
+      {isRevisionModalOpen && revisingProjectId && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem'
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: '520px',
+              backgroundColor: '#0f172a',
+              border: '1px solid rgba(234, 179, 8, 0.4)',
+              borderRadius: '0.75rem',
+              padding: '1.75rem',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+            }}
+          >
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 0.5rem 0', color: '#f8fafc' }}>
+              📝 Minta Revisi Spesifikasi / PRD
+            </h3>
+            <p style={{ fontSize: '0.825rem', color: '#94a3b8', margin: '0 0 1rem 0' }}>
+              Tuliskan poin atau fitur yang ingin diperbaiki/ditambahkan pada PRD. Sarah Jenkins (PM) akan memperbarui dokumen spesifikasi secara instan.
+            </p>
+
+            <form onSubmit={handleRequestRevisionSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <textarea
+                rows={4}
+                required
+                value={revisionFeedback}
+                onChange={e => setRevisionFeedback(e.target.value)}
+                placeholder="Contoh: Tolong tambahkan modul diskon promo voucher dan ganti skema auth menjadi nomor WhatsApp..."
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #334155',
+                  borderRadius: '0.5rem',
+                  color: '#ffffff',
+                  fontSize: '0.85rem',
+                  outline: 'none',
+                  resize: 'none'
+                }}
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRevisionModalOpen(false);
+                    setRevisionFeedback('');
+                    setRevisingProjectId(null);
+                  }}
+                  style={{
+                    backgroundColor: '#1e293b',
+                    color: '#cbd5e1',
+                    border: '1px solid #334155',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={!revisionFeedback.trim()}
+                  style={{
+                    backgroundColor: '#eab308',
+                    color: '#0f172a',
+                    border: 'none',
+                    padding: '0.5rem 1.25rem',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Kirim Revisi ke PM
                 </button>
               </div>
             </form>

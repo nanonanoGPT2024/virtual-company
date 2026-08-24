@@ -41,6 +41,8 @@ export interface ProjectItem {
   tunnel_url?: string;
   version?: string;
   last_iteration_summary?: string;
+  approval_required?: boolean;
+  approval_status?: string;
   created_at: string;
   tasks: ProjectTask[];
   documents: ProjectDocument[];

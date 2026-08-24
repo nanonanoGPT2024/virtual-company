@@ -15,7 +15,9 @@ import {
   History, 
   Bot,
   Lock,
-  ShieldAlert
+  ShieldAlert,
+  Database,
+  Table
 } from 'lucide-react';
 import type { ProjectItem } from './ProjectTimeline';
 
@@ -63,6 +65,12 @@ interface ChatMessage {
   timestamp: string;
 }
 
+interface DatabaseTable {
+  name: string;
+  columns: string[];
+  rows: any[];
+}
+
 export default function ProjectWorkbench({
   project,
   projectDetail: _projectDetail,
@@ -72,7 +80,7 @@ export default function ProjectWorkbench({
   onBack,
   onProjectUpdated
 }: ProjectWorkbenchProps) {
-  const [activeTab, setActiveTab] = useState<'preview' | 'code' | 'docs' | 'revisions'>('preview');
+  const [activeTab, setActiveTab] = useState<'preview' | 'code' | 'database' | 'docs' | 'revisions'>('preview');
   
   // Strict Multi-Tenant Protection:
   // Detect if Owner is inspecting someone else's project
@@ -94,6 +102,11 @@ export default function ProjectWorkbench({
     'src/backend': true,
     'docs': true
   });
+
+  // Database GUI State
+  const [dbTables, setDbTables] = useState<DatabaseTable[]>([]);
+  const [selectedTableName, setSelectedTableName] = useState<string>('');
+  const [isDbLoading, setIsDbLoading] = useState<boolean>(false);
 
   // Revisions State
   const [revisions, setRevisions] = useState<RevisionItem[]>([]);
@@ -175,9 +188,32 @@ export default function ProjectWorkbench({
     }
   };
 
+  // Fetch Database Data
+  const fetchProjectDatabase = async () => {
+    setIsDbLoading(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      const res = await fetch(`${apiBase}/projects/${project.id}/database`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        const tables = data.tables || [];
+        setDbTables(tables);
+        if (tables.length > 0 && !selectedTableName) {
+          setSelectedTableName(tables[0].name);
+        }
+      }
+    } catch (e) {
+      console.warn('Fetch database error:', e);
+    } finally {
+      setIsDbLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchFileTree();
     fetchRevisions();
+    fetchProjectDatabase();
   }, [project.id]);
 
   useEffect(() => {
@@ -495,7 +531,31 @@ export default function ProjectWorkbench({
             }}
           >
             <Code size={14} />
-            Source Code Viewer
+            Source Code
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('database');
+              fetchProjectDatabase();
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.4rem 0.85rem',
+              borderRadius: '0.5rem',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              border: 'none',
+              backgroundColor: activeTab === 'database' ? '#0284c7' : 'transparent',
+              color: activeTab === 'database' ? '#ffffff' : '#94a3b8',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Database size={14} />
+            Database GUI ({dbTables.length})
           </button>
 
           <button
@@ -668,6 +728,145 @@ export default function ProjectWorkbench({
                     fileContent || '// File kosong'
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: DATABASE GUI VIEWER */}
+          {activeTab === 'database' && (
+            <div className="card" style={{ margin: 0, padding: 0, flex: 1, display: 'flex', overflow: 'hidden', backgroundColor: '#020617', border: '1px solid #1e293b' }}>
+              {/* Tables List Sidebar */}
+              <div style={{ width: '220px', borderRight: '1px solid #1e293b', backgroundColor: '#090d16', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ padding: '0.65rem 0.85rem', borderBottom: '1px solid #1e293b', fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Tables ({dbTables.length})</span>
+                  <button 
+                    onClick={fetchProjectDatabase} 
+                    title="Refresh Database Data"
+                    style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                  >
+                    <RefreshCw size={12} className={isDbLoading ? 'spin-slow' : ''} />
+                  </button>
+                </div>
+
+                <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  {dbTables.length === 0 ? (
+                    <div style={{ color: '#64748b', fontSize: '0.75rem', padding: '0.75rem', textAlign: 'center' }}>
+                      {isDbLoading ? 'Memuat tabel...' : 'Belum ada data tabel.'}
+                    </div>
+                  ) : (
+                    dbTables.map(t => {
+                      const isSelected = (selectedTableName || dbTables[0]?.name) === t.name;
+                      return (
+                        <div
+                          key={t.name}
+                          onClick={() => setSelectedTableName(t.name)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '0.45rem 0.65rem',
+                            borderRadius: '0.375rem',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: isSelected ? 700 : 500,
+                            backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                            color: isSelected ? '#38bdf8' : '#94a3b8',
+                            borderLeft: isSelected ? '2px solid #38bdf8' : '2px solid transparent',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <Table size={13} color={isSelected ? '#38bdf8' : '#64748b'} />
+                            <span>{t.name}</span>
+                          </div>
+                          <span style={{ fontSize: '0.65rem', backgroundColor: '#1e293b', color: '#94a3b8', padding: '1px 5px', borderRadius: '4px', fontFamily: 'monospace' }}>
+                            {t.rows?.length || 0}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Table Data Viewer Panel */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, backgroundColor: '#050811' }}>
+                {(() => {
+                  const currentTable = dbTables.find(t => t.name === (selectedTableName || dbTables[0]?.name)) || dbTables[0];
+                  if (!currentTable) {
+                    return (
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+                        Pilih tabel untuk melihat data record.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <div style={{ padding: '0.5rem 1rem', borderBottom: '1px solid #1e293b', backgroundColor: '#090d16', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc', fontFamily: 'monospace' }}>
+                            {currentTable.name}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)', padding: '1px 6px', borderRadius: '4px' }}>
+                            {currentTable.rows.length} rows &bull; {currentTable.columns.length} cols
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={fetchProjectDatabase}
+                          style={{
+                            background: 'rgba(56, 189, 248, 0.1)',
+                            border: '1px solid rgba(56, 189, 248, 0.25)',
+                            color: '#38bdf8',
+                            borderRadius: '4px',
+                            padding: '3px 8px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <RefreshCw size={12} className={isDbLoading ? 'spin-slow' : ''} />
+                          Reload Data
+                        </button>
+                      </div>
+
+                      <div style={{ flex: 1, overflow: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#0f172a', borderBottom: '1px solid #1e293b' }}>
+                              {currentTable.columns.map(col => (
+                                <th key={col} style={{ padding: '0.6rem 0.85rem', color: '#38bdf8', fontWeight: 700, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                                  {col}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentTable.rows.map((row, rIdx) => (
+                              <tr 
+                                key={rIdx} 
+                                style={{ 
+                                  borderBottom: '1px solid #1e293b', 
+                                  backgroundColor: rIdx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' 
+                                }}
+                              >
+                                {currentTable.columns.map(col => (
+                                  <td key={col} style={{ padding: '0.55rem 0.85rem', color: '#cbd5e1', whiteSpace: 'nowrap', fontFamily: typeof row[col] === 'number' ? 'monospace' : 'inherit' }}>
+                                    {typeof row[col] === 'object' ? JSON.stringify(row[col]) : String(row[col] !== undefined ? row[col] : '-')}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}

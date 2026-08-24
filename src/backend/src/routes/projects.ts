@@ -1,9 +1,15 @@
 import path from 'path';
 import fs from 'fs';
+import net from 'net';
 import { Router } from 'express';
 import { spawn, ChildProcess } from 'child_process';
 import { pool } from '../config/db';
-import { runProjectPipeline, iterateProjectPipeline } from '../services/projectPipeline';
+import { 
+  runProjectPipeline, 
+  iterateProjectPipeline, 
+  continueApprovedPipeline, 
+  reviseProjectSpec 
+} from '../services/projectPipeline';
 import { logActivity } from '../services/activityService';
 import { generateProjectSpecTemplateDocx } from '../services/docExportService';
 import { callAgentLLM } from '../services/llmService';
@@ -16,6 +22,109 @@ const router = Router();
 
 // In-Memory active tunnel processes map { [projectId]: ChildProcess }
 const activeTunnels: Record<string, ChildProcess> = {};
+
+// Clean up any active tunnel child processes on exit to prevent zombie processes
+const cleanupAllTunnels = () => {
+  for (const pid of Object.keys(activeTunnels)) {
+    try {
+      activeTunnels[pid]?.kill('SIGTERM');
+      delete activeTunnels[pid];
+    } catch (_) {}
+  }
+};
+process.on('SIGINT', cleanupAllTunnels);
+process.on('SIGTERM', cleanupAllTunnels);
+process.on('exit', cleanupAllTunnels);
+
+// Helper function to safely check port availability
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const tester = net.createServer();
+    tester.once('error', () => resolve(false));
+    tester.once('listening', () => {
+      tester.close();
+      resolve(true);
+    });
+    tester.listen(port, '0.0.0.0');
+  });
+}
+
+// Helper to get next genuinely available port
+async function getNextAvailablePort(startPort = 5001): Promise<number> {
+  let port = startPort;
+  while (!(await isPortAvailable(port))) {
+    port++;
+  }
+  return port;
+}
+
+// Helper function to extract database tables & rows from a project directory
+function extractProjectDatabase(projectDir: string): Array<{ name: string; columns: string[]; rows: any[] }> {
+  const tables: Array<{ name: string; columns: string[]; rows: any[] }> = [];
+
+  // 1. Scan JSON data files (data.json, db.json, database.json, items.json, orders.json)
+  const candidateDirs = [projectDir, path.join(projectDir, 'src', 'backend')];
+  for (const cDir of candidateDirs) {
+    if (fs.existsSync(cDir)) {
+      const entries = fs.readdirSync(cDir);
+      for (const entry of entries) {
+        if (entry.endsWith('.json') && entry !== 'package.json' && entry !== 'package-lock.json' && entry !== 'tsconfig.json') {
+          const filePath = path.join(cDir, entry);
+          try {
+            const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            const tableName = path.basename(entry, '.json');
+            if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === 'object') {
+              if (!tables.some(t => t.name === tableName)) {
+                tables.push({ name: tableName, columns: Object.keys(raw[0]), rows: raw });
+              }
+            } else if (typeof raw === 'object' && raw !== null) {
+              for (const k of Object.keys(raw)) {
+                if (Array.isArray(raw[k]) && raw[k].length > 0 && typeof raw[k][0] === 'object') {
+                  if (!tables.some(t => t.name === k)) {
+                    tables.push({ name: k, columns: Object.keys(raw[k][0]), rows: raw[k] });
+                  }
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      }
+    }
+  }
+
+  // 2. Extract in-memory data structures from server.js
+  const serverPath = path.join(projectDir, 'src', 'backend', 'server.js');
+  if (fs.existsSync(serverPath)) {
+    try {
+      const code = fs.readFileSync(serverPath, 'utf8');
+      const arrayRegex = /(?:let|const|var)\s+([a-zA-Z0-9_]+)\s*=\s*(\[\s*\{[\s\S]*?\}\s*\])/g;
+      let match;
+      while ((match = arrayRegex.exec(code)) !== null) {
+        const tableName = match[1];
+        if (tables.some(t => t.name === tableName)) continue;
+        try {
+          const rows = Function('return ' + match[2])();
+          if (Array.isArray(rows) && rows.length > 0 && typeof rows[0] === 'object') {
+            tables.push({ name: tableName, columns: Object.keys(rows[0]), rows });
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
+  // Default fallback if table is empty
+  if (tables.length === 0) {
+    tables.push({
+      name: 'items',
+      columns: ['id', 'name', 'status', 'created_at'],
+      rows: [
+        { id: 1, name: 'Sample Record Item', status: 'ACTIVE', created_at: new Date().toISOString() }
+      ]
+    });
+  }
+
+  return tables;
+}
 
 // 1. POST /api/projects/enrich-spec (Interactive PRD Auto-Enrichment & Spec Builder)
 router.post('/enrich-spec', authenticateUser, async (req, res) => {
@@ -93,10 +202,19 @@ Tolong perkaya spesifikasi kebutuhan aplikasi ini menjadi format JSON murni (tan
 // 2. POST /api/projects/:id/tunnel/start (One-Click Instant Public Tunnel)
 router.post('/:id/tunnel/start', authenticateUser, async (req, res) => {
   try {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+
     const { id } = req.params;
     const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
     if (projRes.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
     const project = projRes.rows[0];
+
+    // Multi-tenant check
+    if (user.role === 'CLIENT' && String(project.user_id || '').trim().toLowerCase() !== String(user.id || '').trim().toLowerCase()) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda bukan pemilik proyek ini.' });
+    }
+
     const port = project.port || 5001;
 
     // Check if existing tunnel process is still active
@@ -159,7 +277,19 @@ router.post('/:id/tunnel/start', authenticateUser, async (req, res) => {
 // 3. POST /api/projects/:id/tunnel/stop (Stop Public Tunnel)
 router.post('/:id/tunnel/stop', authenticateUser, async (req, res) => {
   try {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+
     const { id } = req.params;
+    const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
+    if (projRes.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
+    const project = projRes.rows[0];
+
+    // Multi-tenant check
+    if (user.role === 'CLIENT' && String(project.user_id || '').trim().toLowerCase() !== String(user.id || '').trim().toLowerCase()) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda bukan pemilik proyek ini.' });
+    }
+
     if (activeTunnels[id]) {
       try {
         activeTunnels[id].kill('SIGTERM');
@@ -220,13 +350,23 @@ router.get('/', authenticateUser, async (req, res) => {
   }
 });
 
-// GET single project with its documents
-router.get('/:id', async (req, res) => {
+// GET single project with its documents (Strict Multi-Tenant Protection)
+router.get('/:id', authenticateUser, async (req, res) => {
   try {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+
     const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [req.params.id]);
     if (projRes.rows.length === 0) {
       return res.status(404).json({ error: 'Project not found' });
     }
+    const project = projRes.rows[0];
+
+    // Multi-tenant check
+    if (user.role === 'CLIENT' && String(project.user_id || '').trim().toLowerCase() !== String(user.id || '').trim().toLowerCase()) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda bukan pemilik proyek ini.' });
+    }
+
     const docsRes = await pool.query('SELECT * FROM project_documents WHERE project_id = $1 ORDER BY created_at ASC', [req.params.id]);
     const costsRes = await pool.query('SELECT * FROM token_usages WHERE project_id = $1 ORDER BY created_at DESC', [req.params.id]);
 
@@ -489,9 +629,12 @@ ${codeOverview ? `- Ringkasan Kodingan: \n${codeOverview}` : ''}`;
   }
 });
 
-// Download individual document file (.docx, .xlsx, .md)
-router.get('/:id/download-file', async (req, res) => {
+// Download individual document file (.docx, .xlsx, .md) (Strict Multi-Tenant Protection)
+router.get('/:id/download-file', authenticateUser, async (req, res) => {
   try {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+
     const { id } = req.params;
     const { filename } = req.query;
     if (!filename) return res.status(400).json({ error: 'Filename is required' });
@@ -499,6 +642,11 @@ router.get('/:id/download-file', async (req, res) => {
     const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
     if (projRes.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
     const project = projRes.rows[0];
+
+    // Multi-tenant check
+    if (user.role === 'CLIENT' && String(project.user_id || '').trim().toLowerCase() !== String(user.id || '').trim().toLowerCase()) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda bukan pemilik proyek ini.' });
+    }
 
     const baseDir = project.repo_path || path.join(process.env.PROJECTS_BASE_DIR || '/mnt/d/explore/result_projek', project.slug);
     const filePath = path.join(baseDir, 'docs', String(filename));
@@ -513,13 +661,21 @@ router.get('/:id/download-file', async (req, res) => {
   }
 });
 
-// Download entire project as .ZIP with strong fallback and error resilience
-router.get('/:id/download-zip', async (req, res) => {
+// Download entire project as .ZIP with strong fallback and error resilience (Strict Multi-Tenant Protection)
+router.get('/:id/download-zip', authenticateUser, async (req, res) => {
   try {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+
     const { id } = req.params;
     const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
     if (projRes.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
     const project = projRes.rows[0];
+
+    // Multi-tenant check
+    if (user.role === 'CLIENT' && String(project.user_id || '').trim().toLowerCase() !== String(user.id || '').trim().toLowerCase()) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda bukan pemilik proyek ini.' });
+    }
 
     const baseDir = project.repo_path || path.join(process.env.PROJECTS_BASE_DIR || '/mnt/d/explore/result_projek', project.slug);
     if (!fs.existsSync(baseDir)) {
@@ -584,6 +740,94 @@ with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
   }
 });
 
+// 9. GET /api/projects/:id/database (Interactive Database GUI Viewer)
+router.get('/:id/database', authenticateUser, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+
+    const { id } = req.params;
+    const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
+    if (projRes.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
+    const project = projRes.rows[0];
+
+    // Multi-tenant check
+    if (user.role === 'CLIENT' && String(project.user_id || '').trim().toLowerCase() !== String(user.id || '').trim().toLowerCase()) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda bukan pemilik proyek ini.' });
+    }
+
+    const projectDir = project.repo_path || path.join(process.env.PROJECTS_BASE_DIR || '/mnt/d/explore/result_projek', project.slug);
+    const tables = extractProjectDatabase(projectDir);
+
+    res.json({
+      success: true,
+      projectId: id,
+      projectName: project.title || project.name,
+      tables
+    });
+  } catch (error: any) {
+    console.error('Error fetching project database tables:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 10. POST /api/projects/:id/approve (Formal Client Milestone Sign-Off)
+router.post('/:id/approve', authenticateUser, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+
+    const { id } = req.params;
+    const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
+    if (projRes.rows.length === 0) return res.status(404).json({ error: 'Project tidak ditemukan' });
+    const project = projRes.rows[0];
+
+    // Only project owner (Client) or Owner can sign-off
+    if (user.role === 'CLIENT' && String(project.user_id || '').trim().toLowerCase() !== String(user.id || '').trim().toLowerCase()) {
+      return res.status(403).json({ error: 'Akses ditolak: Hanya pemilik proyek yang berhak menyetujui spesifikasi.' });
+    }
+
+    await continueApprovedPipeline(id);
+
+    res.json({
+      success: true,
+      message: 'Spesifikasi telah disetujui. Pipeline otomatis melanjutkan tahap coding & deployment.',
+      projectId: id
+    });
+  } catch (error: any) {
+    console.error('Error approving project spec:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 11. POST /api/projects/:id/request-spec-revision (Request Spec/PRD Revision before coding)
+router.post('/:id/request-spec-revision', authenticateUser, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+
+    const { id } = req.params;
+    const { feedback } = req.body;
+    if (!feedback || !feedback.trim()) {
+      return res.status(400).json({ error: 'Catatan feedback / revisi spesifikasi diperlukan' });
+    }
+
+    const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
+    if (projRes.rows.length === 0) return res.status(404).json({ error: 'Project tidak ditemukan' });
+    const project = projRes.rows[0];
+
+    if (user.role === 'CLIENT' && String(project.user_id || '').trim().toLowerCase() !== String(user.id || '').trim().toLowerCase()) {
+      return res.status(403).json({ error: 'Akses ditolak: Hanya pemilik proyek yang berhak meminta revisi.' });
+    }
+
+    const result = await reviseProjectSpec(id, feedback.trim());
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error requesting spec revision:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST Create new project
 router.post('/', authenticateUser, async (req, res) => {
   try {
@@ -602,7 +846,8 @@ router.post('/', authenticateUser, async (req, res) => {
       theme,
       includeAuth,
       storageType,
-      attachedDocs
+      attachedDocs,
+      requireApproval
     } = req.body;
     const projectTitle = title || name;
     if (!projectTitle) {
@@ -612,21 +857,37 @@ router.post('/', authenticateUser, async (req, res) => {
     const slug = projectTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
     const projectId = `PROJ-${Math.floor(1000 + Math.random() * 9000)}`;
     
+    // Dynamic Safe Port Allocation to avoid port collision
     let assignedPort = custom_port;
     if (!assignedPort) {
       const portRes = await pool.query('SELECT MAX(port) as max_port FROM projects');
-      const maxPort = portRes.rows[0].max_port;
-      assignedPort = maxPort ? parseInt(maxPort, 10) + 1 : 5001;
+      const maxDbPort = portRes.rows[0].max_port ? parseInt(portRes.rows[0].max_port, 10) + 1 : 5001;
+      assignedPort = await getNextAvailablePort(maxDbPort);
+    } else {
+      assignedPort = parseInt(String(assignedPort), 10);
     }
 
     const baseDir = target_dir && target_dir.trim() ? target_dir.trim() : (process.env.PROJECTS_BASE_DIR || '/mnt/d/explore/result_projek');
     const projectDir = path.join(baseDir, slug);
 
+    const isApprovalRequired = Boolean(requireApproval);
+
     const newProject = await pool.query(
-      `INSERT INTO projects (id, company_id, user_id, title, slug, description, goal, port, status, current_stage, progress_percentage, repo_path)
-       VALUES ($1, 'COMP-001', $2, $3, $4, $5, $6, $7, 'INITIATED', 'Discovery & Spec', 5, $8)
+      `INSERT INTO projects (id, company_id, user_id, title, slug, description, goal, port, status, current_stage, progress_percentage, repo_path, approval_required, approval_status)
+       VALUES ($1, 'COMP-001', $2, $3, $4, $5, $6, $7, 'INITIATED', 'Discovery & Spec', 5, $8, $9, $10)
        RETURNING *`,
-      [projectId, creatorUserId, projectTitle, slug, description || projectTitle, goal || description || projectTitle, assignedPort, projectDir]
+      [
+        projectId, 
+        creatorUserId, 
+        projectTitle, 
+        slug, 
+        description || projectTitle, 
+        goal || description || projectTitle, 
+        assignedPort, 
+        projectDir,
+        isApprovalRequired,
+        isApprovalRequired ? 'PENDING' : 'NONE'
+      ]
     );
 
     await logActivity('RESEARCH', `${creatorName} menginisiasi proyek baru: "${projectTitle}"`, 'EMP-OWNER', projectId);
@@ -637,7 +898,8 @@ router.post('/', authenticateUser, async (req, res) => {
       theme: theme || 'cyber',
       includeAuth: Boolean(includeAuth),
       storageType: storageType || 'memory',
-      attachedDocs: attachedDocs || []
+      attachedDocs: attachedDocs || [],
+      requireApproval: isApprovalRequired
     }).catch(err => {
       console.error(`[Pipeline Async Error for ${projectId}]:`, err);
     });
@@ -649,15 +911,23 @@ router.post('/', authenticateUser, async (req, res) => {
   }
 });
 
-// DELETE Project with full cleanup
-router.delete('/:id', async (req, res) => {
+// DELETE Project with full cleanup (Strict Multi-Tenant Protection)
+router.delete('/:id', authenticateUser, async (req, res) => {
   try {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ error: 'Unauthorized. Silakan login terlebih dahulu.' });
+
     const { id } = req.params;
     const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
     if (projRes.rows.length === 0) {
       return res.status(404).json({ error: 'Project not found' });
     }
     const project = projRes.rows[0];
+
+    // Multi-tenant check: Client can only delete their own project, Owner can delete any
+    if (user.role === 'CLIENT' && String(project.user_id || '').trim().toLowerCase() !== String(user.id || '').trim().toLowerCase()) {
+      return res.status(403).json({ error: 'Akses ditolak: Anda bukan pemilik proyek ini.' });
+    }
 
     // 1. PM2 Cleanup
     if (project.pm2_name) {
@@ -668,7 +938,15 @@ router.delete('/:id', async (req, res) => {
       }
     }
 
-    // 2. Filesystem Cleanup
+    // 2. Active Tunnel Cleanup
+    if (activeTunnels[id]) {
+      try {
+        activeTunnels[id].kill('SIGTERM');
+        delete activeTunnels[id];
+      } catch (_) {}
+    }
+
+    // 3. Filesystem Cleanup
     const candidatePaths: string[] = [];
     if (project.repo_path) candidatePaths.push(project.repo_path);
     if (project.slug) {
@@ -692,7 +970,8 @@ router.delete('/:id', async (req, res) => {
       }
     }
 
-    // 3. Database Cleanup
+    // 4. Database Cleanup
+    await pool.query('DELETE FROM project_revisions WHERE project_id = $1', [id]).catch(() => {});
     await pool.query('DELETE FROM project_documents WHERE project_id = $1', [id]).catch(() => {});
     await pool.query('DELETE FROM token_usages WHERE project_id = $1', [id]).catch(() => {});
     await pool.query('DELETE FROM chat_messages WHERE project_id = $1', [id]).catch(() => {});

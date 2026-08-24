@@ -27,6 +27,7 @@ export interface PipelineOptions {
   includeAuth?: boolean;
   storageType?: 'memory' | 'sqlite';
   attachedDocs?: AttachedDoc[];
+  requireApproval?: boolean;
 }
 
 export async function runProjectPipeline(projectId: string, options?: PipelineOptions) {
@@ -113,6 +114,25 @@ PRD harus memuat:
     fs.writeFileSync(path.join(docsDir, '01_PRD.md'), prdContent, 'utf8');
     await saveProjectDocument(projectId, 'PRD', '01_PRD.md', prdContent, 'EMP-PM', path.join('docs', '01_PRD.md'));
     await setAgentStatus('EMP-PM', 'IDLE');
+
+    // Milestone Approval Gate (PRD v2.6):
+    // Jika proyek meminta sign-off / approval klien terlebih dahulu sebelum coding
+    if (options?.requireApproval) {
+      await pool.query(
+        `UPDATE projects 
+         SET status = 'WAITING_APPROVAL', current_stage = 'Menunggu Persetujuan Klien', approval_status = 'PENDING', progress_percentage = 25, updated_at = NOW() 
+         WHERE id = $1`,
+        [projectId]
+      );
+
+      await logActivity(
+        'WRITE_SPEC',
+        `📌 PRD & Spesifikasi proyek "${project.title}" telah terbit. Menunggu review & persetujuan sign-off dari Klien sebelum koding dimulai.`,
+        'EMP-PM',
+        projectId
+      );
+      return;
+    }
 
     // ==========================================
     // PHASE 2: FULL PARALLEL DESIGN, ARCHITECTURE, SCAFFOLDING & COMMERCIAL
@@ -1124,4 +1144,66 @@ Output WAJIB berupa JSON murni dengan format persis:
     affectedFiles,
     revisionId
   };
+}
+
+export async function continueApprovedPipeline(projectId: string) {
+  const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [projectId]);
+  if (projRes.rows.length === 0) throw new Error('Project tidak ditemukan.');
+
+  await pool.query(
+    `UPDATE projects SET approval_status = 'APPROVED', status = 'BUILDING', current_stage = 'Parallel Engineering, Design & Commercial Docs', progress_percentage = 50, updated_at = NOW() WHERE id = $1`,
+    [projectId]
+  );
+
+  await logActivity(
+    'APPROVAL',
+    `✅ Klien menyetujui spesifikasi (PRD). Memulai fase coding, testing, dan deployment!`,
+    'EMP-PM',
+    projectId
+  );
+
+  // Resume pipeline directly to Phase 2
+  runProjectPipeline(projectId, {
+    theme: 'cyber',
+    includeAuth: true,
+    storageType: 'memory',
+    requireApproval: false
+  }).catch(err => {
+    console.error(`[Continue Pipeline Error for ${projectId}]:`, err);
+  });
+}
+
+export async function reviseProjectSpec(projectId: string, feedback: string) {
+  const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [projectId]);
+  if (projRes.rows.length === 0) throw new Error('Project tidak ditemukan.');
+  const project = projRes.rows[0];
+
+  await logActivity(
+    'WRITE_SPEC',
+    `📝 Klien meminta revisi spesifikasi: "${feedback}". Sarah (PM) memperbarui PRD...`,
+    'EMP-PM',
+    projectId
+  );
+
+  const projectDir = project.repo_path || path.join(DEFAULT_PROJECTS_BASE_DIR, project.slug);
+  const docsDir = path.join(projectDir, 'docs');
+  fs.mkdirSync(docsDir, { recursive: true });
+
+  const revisePrompt = `Spesifikasi awal proyek "${project.title}":
+Deskripsi: ${project.description}
+
+Catatan / Permintaan Revisi Klien: "${feedback}"
+
+Tolong perbarui Product Requirements Document (01_PRD.md) untuk mengakomodasi seluruh catatan klien tersebut. Format Markdown (.md) lengkap.`;
+
+  const prdRes = await callAgentLLM('EMP-PM', 'Kamu adalah Senior Product Manager (Sarah Jenkins).', revisePrompt, projectId);
+  fs.writeFileSync(path.join(docsDir, '01_PRD.md'), prdRes.content, 'utf8');
+  await saveProjectDocument(projectId, 'PRD', '01_PRD.md (Revisi)', prdRes.content, 'EMP-PM', path.join('docs', '01_PRD.md'));
+
+  await pool.query(
+    `UPDATE projects SET current_stage = 'Spesifikasi Telah Direvisi - Menunggu Persetujuan Klien', approval_status = 'PENDING', updated_at = NOW() WHERE id = $1`,
+    [projectId]
+  );
+
+  return { success: true, message: 'PRD berhasil direvisi sesuai masukan klien' };
 }
