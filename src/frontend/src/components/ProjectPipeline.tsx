@@ -21,11 +21,13 @@ import {
   CheckCheck
 } from 'lucide-react';
 import type { ProjectItem, ProjectDocument } from './ProjectTimeline';
+import ProjectWorkbench from './ProjectWorkbench';
 
 interface ProjectPipelineProps {
   projects: ProjectItem[];
   onProjectCreated?: () => void;
   apiBase?: string;
+  authToken?: string | null;
   inspectUser?: { id: string; name: string } | null;
   onClearInspectUser?: () => void;
 }
@@ -116,12 +118,14 @@ export default function ProjectPipeline({
   projects, 
   onProjectCreated, 
   apiBase = 'http://localhost:4000/api',
+  authToken,
   inspectUser,
   onClearInspectUser 
 }: ProjectPipelineProps) {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedProjectDetail, setSelectedProjectDetail] = useState<any | null>(null);
   const [selectedDivisionIndex, setSelectedDivisionIndex] = useState<number>(4); // Default to DevOps or active
+  const [isWorkbenchMode, setIsWorkbenchMode] = useState<boolean>(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [projectToDelete, setProjectToDelete] = useState<ProjectItem | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -624,6 +628,7 @@ export default function ProjectPipeline({
                     onClick={() => {
                       setSelectedProjectId(project.id);
                       setSelectedDivisionIndex(activeDivIdx);
+                      setIsWorkbenchMode(true);
                     }}
                     className="card"
                     style={{
@@ -673,6 +678,41 @@ export default function ProjectPipeline({
                         </span>
 
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button
+                            title="Buka AI Workbench Studio"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedProjectId(project.id);
+                              setSelectedDivisionIndex(activeDivIdx);
+                              setIsWorkbenchMode(true);
+                            }}
+                            style={{
+                              background: 'rgba(56, 189, 248, 0.15)',
+                              border: '1px solid #38bdf8',
+                              color: '#38bdf8',
+                              borderRadius: '4px',
+                              padding: '3px 8px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#0284c7';
+                              e.currentTarget.style.color = '#ffffff';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'rgba(56, 189, 248, 0.15)';
+                              e.currentTarget.style.color = '#38bdf8';
+                            }}
+                          >
+                            <Sparkles size={13} />
+                            Studio
+                          </button>
+
                           <button
                             title="Download Bundle (.ZIP)"
                             onClick={(e) => {
@@ -883,8 +923,21 @@ export default function ProjectPipeline({
         </div>
       ) : (
         /* ========================================================================= */
-        /* VIEW 2: FULL PROCESS PIPELINE DIAGRAM & DIVISION REPORT VIEWER            */
+        /* VIEW 2: FULL PROCESS PIPELINE DIAGRAM OR AI WORKBENCH STUDIO              */
         /* ========================================================================= */
+        isWorkbenchMode ? (
+          <ProjectWorkbench
+            project={selectedProject}
+            projectDetail={selectedProjectDetail}
+            apiBase={apiBase}
+            authToken={authToken}
+            onBack={() => {
+              setIsWorkbenchMode(false);
+              setSelectedProjectId(null);
+            }}
+            onProjectUpdated={onProjectCreated}
+          />
+        ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Top Bar Navigation & Info */}
           <div className="card" style={{ margin: 0, padding: '1.25rem' }}>
@@ -922,6 +975,28 @@ export default function ProjectPipeline({
               </div>
 
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setIsWorkbenchMode(!isWorkbenchMode)}
+                  style={{
+                    backgroundColor: isWorkbenchMode ? '#0284c7' : '#1e293b',
+                    color: isWorkbenchMode ? '#ffffff' : '#38bdf8',
+                    border: '1px solid #38bdf8',
+                    padding: '0.5rem 0.9rem',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    transition: 'all 0.2s',
+                    boxShadow: isWorkbenchMode ? '0 0 10px rgba(56, 189, 248, 0.4)' : 'none'
+                  }}
+                >
+                  <Sparkles size={15} />
+                  {isWorkbenchMode ? 'Tutup Studio' : '⚡ Buka AI Workbench Studio'}
+                </button>
+
                 {/* Instant Public Tunnel Toggle Button on Detail View */}
                 {selectedProject.tunnel_url ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(52, 211, 153, 0.15)', border: '1px solid rgba(52, 211, 153, 0.35)', padding: '0.4rem 0.8rem', borderRadius: '0.5rem', fontSize: '0.8rem' }}>
@@ -1421,6 +1496,7 @@ export default function ProjectPipeline({
             );
           })()}
         </div>
+        )
       )}
 
       {/* ========================================================================= */}

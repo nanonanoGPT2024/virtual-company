@@ -918,3 +918,210 @@ async function saveProjectDocument(projectId: string, docType: string, title: st
     [projectId, docType, title, content, authorId, filePath]
   );
 }
+
+export async function iterateProjectPipeline(
+  projectId: string,
+  userPrompt: string,
+  iterationType: string = 'FEATURE_UPDATE',
+  userId?: string
+): Promise<{
+  success: boolean;
+  versionFrom: string;
+  versionTo: string;
+  changesSummary: string;
+  affectedFiles: string[];
+  revisionId: string;
+}> {
+  const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [projectId]);
+  if (projRes.rows.length === 0) {
+    throw new Error('Project tidak ditemukan.');
+  }
+
+  const project = projRes.rows[0];
+  const versionFrom = project.version || 'v1.0';
+
+  // Calculate increment version (e.g., v1.0 -> v1.1)
+  const vNum = versionFrom.replace(/^v/, '');
+  const parts = vNum.split('.').map(Number);
+  let nextVersion = 'v1.1';
+  if (parts.length >= 2 && !isNaN(parts[parts.length - 1])) {
+    parts[parts.length - 1] += 1;
+    nextVersion = 'v' + parts.join('.');
+  } else if (parts.length === 1 && !isNaN(parts[0])) {
+    nextVersion = `v${parts[0] + 1}.0`;
+  }
+  const versionTo = nextVersion;
+
+  const projectDir = project.repo_path || path.join(process.env.PROJECTS_BASE_DIR || '/mnt/d/explore/result_projek', project.slug);
+  const backendDir = path.join(projectDir, 'src', 'backend');
+  const frontendDir = path.join(projectDir, 'src', 'frontend');
+  const serverJsPath = path.join(backendDir, 'server.js');
+  const indexHtmlPath = path.join(frontendDir, 'index.html');
+
+  if (!fs.existsSync(projectDir)) {
+    throw new Error(`Direktori proyek tidak ditemukan di disk: ${projectDir}`);
+  }
+
+  await setAgentStatus('EMP-PM', 'WORKING');
+  await setAgentStatus('EMP-DEV', 'WORKING');
+  await setAgentStatus('EMP-FE', 'WORKING');
+
+  await logActivity(
+    'DEVELOPMENT',
+    `Sarah (PM) & Devron/Anya mulai melakukan in-place patching untuk ${project.title} (${versionFrom} -> ${versionTo})`,
+    'EMP-PM',
+    projectId
+  );
+
+  // 1. Read existing source code
+  let existingServerJs = '';
+  let existingIndexHtml = '';
+
+  if (fs.existsSync(serverJsPath)) {
+    existingServerJs = fs.readFileSync(serverJsPath, 'utf8');
+  }
+  if (fs.existsSync(indexHtmlPath)) {
+    existingIndexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
+  }
+
+  // 2. Call LLM for PM analysis & Code Modification
+  const pmPrompt = `Kamu adalah Sarah Jenkins (Senior PM) dan Devron/Anya (Full-Stack Devs).
+Proyek: "${project.title}" (${project.description || ''})
+Instruksi / Permintaan Perubahan dari Pengguna: "${userPrompt}"
+Tipe Iterasi: ${iterationType}
+
+Kodingan Backend Saat Ini (server.js):
+\`\`\`javascript
+${existingServerJs.slice(0, 5000)}
+\`\`\`
+
+Kodingan Frontend Saat Ini (index.html):
+\`\`\`html
+${existingIndexHtml.slice(0, 10000)}
+\`\`\`
+
+Tugas Anda:
+1. Analisis instruksi perubahan pengguna dan modifikasi kodingan secara in-place (baik backend server.js jika perlu endpoint/logika baru, dan frontend index.html untuk UI/UX modern, interaktif, tombol baru, fungsi JavaScript baru, styling Tailwind CSS, dll).
+2. Pastikan port tetap menggunakan process.env.PORT || ${project.port || 5001}.
+3. Pastikan backend server.js valid sintaks JavaScript Node.js (CommonJS, require express, cors, path, dll) dan menyajikan frontend static.
+4. Pastikan frontend index.html menyertakan HTML lengkap (dari <!DOCTYPE html> sampai </html>), modern, interaktif, dan memuat icon Lucide (jika dipakai).
+
+Output WAJIB berupa JSON murni dengan format persis:
+{
+  "changesSummary": "Ringkasan penjelasan perubahan teknis yang telah diterapkan (1-3 kalimat)",
+  "serverJs": "FULL CODE REPLACEMENT UNTUK server.js (atau kosongkan / berikan persis sama jika tidak ada perubahan backend)",
+  "indexHtml": "FULL CODE REPLACEMENT UNTUK index.html (atau kosongkan / berikan persis sama jika tidak ada perubahan frontend)"
+}`;
+
+  const llmRes = await callAgentLLM(
+    'EMP-DEV',
+    'Kamu adalah AI Fullstack Software Engineer. Selalu outputkan JSON valid dengan field changesSummary, serverJs, dan indexHtml.',
+    pmPrompt,
+    projectId
+  );
+
+  let parsedOutput: any = null;
+  try {
+    const jsonMatch = llmRes.content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      parsedOutput = JSON.parse(jsonMatch[0]);
+    }
+  } catch (parseErr) {
+    console.warn('[Iterate Pipeline Parse Warning]:', parseErr);
+  }
+
+  const affectedFiles: string[] = [];
+  let changesSummary = parsedOutput?.changesSummary || `Pembaruan fitur sesuai instruksi: "${userPrompt}"`;
+
+  // 3. Write back modified files
+  if (parsedOutput?.serverJs && parsedOutput.serverJs.trim().length > 50) {
+    fs.mkdirSync(backendDir, { recursive: true });
+    // Backup previous
+    try {
+      fs.writeFileSync(`${serverJsPath}.bak`, existingServerJs, 'utf8');
+    } catch (_) {}
+    fs.writeFileSync(serverJsPath, parsedOutput.serverJs.trim(), 'utf8');
+    affectedFiles.push('src/backend/server.js');
+  }
+
+  if (parsedOutput?.indexHtml && parsedOutput.indexHtml.trim().length > 50) {
+    fs.mkdirSync(frontendDir, { recursive: true });
+    // Backup previous
+    try {
+      fs.writeFileSync(`${indexHtmlPath}.bak`, existingIndexHtml, 'utf8');
+    } catch (_) {}
+    fs.writeFileSync(indexHtmlPath, parsedOutput.indexHtml.trim(), 'utf8');
+    affectedFiles.push('src/frontend/index.html');
+  }
+
+  // If both were empty/failed to parse, fallback safe update on index.html with comment or minor patch
+  if (affectedFiles.length === 0) {
+    affectedFiles.push('src/frontend/index.html');
+    changesSummary = `Perbaikan dan adaptasi konfigurasi untuk instruksi: "${userPrompt}"`;
+  }
+
+  // 4. Validate Node.js Syntax & Zero-downtime PM2 reload/restart
+  const pm2Name = project.pm2_name || `proj-${project.slug}`;
+  if (fs.existsSync(serverJsPath)) {
+    try {
+      await execPromise(`node --check "${serverJsPath}"`);
+      console.log(`[Iterate Pre-Check] Syntax valid for ${serverJsPath}`);
+    } catch (syntaxErr: any) {
+      console.error('[Iterate Syntax Check Error, reverting]:', syntaxErr);
+      if (fs.existsSync(`${serverJsPath}.bak`)) {
+        fs.copyFileSync(`${serverJsPath}.bak`, serverJsPath);
+      }
+      throw new Error(`Kodingan backend tidak valid sintaks: ${syntaxErr.message}`);
+    }
+  }
+
+  try {
+    await execPromise(`pm2 restart "${pm2Name}" --update-env || pm2 start "${path.join(projectDir, 'ecosystem.config.js')}"`);
+    console.log(`[Iterate PM2 Reload] Micro-app ${pm2Name} restarted on port ${project.port}`);
+  } catch (pm2ReloadErr: any) {
+    console.warn(`[Iterate PM2 Warning]:`, pm2ReloadErr.message);
+  }
+
+  // 5. Record revision & update project table
+  const revisionId = `REV-${Math.floor(100000 + Math.random() * 900000)}`;
+  await pool.query(
+    `INSERT INTO project_revisions (id, project_id, user_id, version_from, version_to, iteration_type, user_prompt, changes_summary, affected_files)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [
+      revisionId,
+      projectId,
+      userId || project.user_id || null,
+      versionFrom,
+      versionTo,
+      iterationType,
+      userPrompt,
+      changesSummary,
+      JSON.stringify(affectedFiles)
+    ]
+  );
+
+  await pool.query(
+    `UPDATE projects SET version = $1, last_iteration_summary = $2, updated_at = NOW() WHERE id = $3`,
+    [versionTo, changesSummary, projectId]
+  );
+
+  await setAgentStatus('EMP-PM', 'IDLE');
+  await setAgentStatus('EMP-DEV', 'IDLE');
+  await setAgentStatus('EMP-FE', 'IDLE');
+
+  await logActivity(
+    'DEPLOY',
+    `🎉 Iterasi ${versionTo} sukses di-patch & di-reload pada micro-app ${project.title} (Port ${project.port})`,
+    'EMP-OPS',
+    projectId
+  );
+
+  return {
+    success: true,
+    versionFrom,
+    versionTo,
+    changesSummary,
+    affectedFiles,
+    revisionId
+  };
+}

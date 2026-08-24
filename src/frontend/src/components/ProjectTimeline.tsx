@@ -38,6 +38,8 @@ export interface ProjectItem {
   port?: number;
   pm2_name?: string;
   tunnel_url?: string;
+  version?: string;
+  last_iteration_summary?: string;
   created_at: string;
   tasks: ProjectTask[];
   documents: ProjectDocument[];

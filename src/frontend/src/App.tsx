@@ -904,6 +904,7 @@ export default function App() {
                   projects={inspectUser ? projects.filter(p => String((p as any).user_id || '').trim().toLowerCase() === String(inspectUser.id || '').trim().toLowerCase()) : projects} 
                   onProjectCreated={() => fetchData(false)} 
                   apiBase={API_BASE}
+                  authToken={authToken}
                   inspectUser={inspectUser}
                   onClearInspectUser={() => setInspectUser(null)}
                 />

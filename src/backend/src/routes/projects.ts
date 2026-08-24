@@ -3,7 +3,7 @@ import fs from 'fs';
 import { Router } from 'express';
 import { spawn, ChildProcess } from 'child_process';
 import { pool } from '../config/db';
-import { runProjectPipeline } from '../services/projectPipeline';
+import { runProjectPipeline, iterateProjectPipeline } from '../services/projectPipeline';
 import { logActivity } from '../services/activityService';
 import { generateProjectSpecTemplateDocx } from '../services/docExportService';
 import { callAgentLLM } from '../services/llmService';
@@ -236,6 +236,219 @@ router.get('/:id', async (req, res) => {
       costs: costsRes.rows
     });
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Helper to get recursive project file tree excluding node_modules & .git
+function getProjectFileTree(dir: string, baseDir: string = dir): any[] {
+  if (!fs.existsSync(dir)) return [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const result: any[] = [];
+
+  for (const entry of entries) {
+    if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === '.DS_Store') continue;
+    const fullPath = path.join(dir, entry.name);
+    const relPath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
+
+    if (entry.isDirectory()) {
+      result.push({
+        name: entry.name,
+        path: relPath,
+        type: 'directory',
+        children: getProjectFileTree(fullPath, baseDir)
+      });
+    } else {
+      let size = 0;
+      try { size = fs.statSync(fullPath).size; } catch (_) {}
+      result.push({
+        name: entry.name,
+        path: relPath,
+        type: 'file',
+        size
+      });
+    }
+  }
+
+  // Sort directories first, then files
+  return result.sort((a, b) => {
+    if (a.type === b.type) return a.name.localeCompare(b.name);
+    return a.type === 'directory' ? -1 : 1;
+  });
+}
+
+// 4. GET /api/projects/:id/files (List Project Source Code Files)
+router.get('/:id/files', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
+    if (projRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Project tidak ditemukan' });
+    }
+    const project = projRes.rows[0];
+    const projectDir = project.repo_path || path.join(process.env.PROJECTS_BASE_DIR || '/mnt/d/explore/result_projek', project.slug);
+
+    if (!fs.existsSync(projectDir)) {
+      return res.json({ files: [] });
+    }
+
+    const files = getProjectFileTree(projectDir, projectDir);
+    res.json({ files });
+  } catch (error: any) {
+    console.error('Error fetching project files:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 5. GET /api/projects/:id/files/content (Read Source Code File Content)
+router.get('/:id/files/content', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { filePath } = req.query;
+    if (!filePath) {
+      return res.status(400).json({ error: 'filePath is required' });
+    }
+
+    const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
+    if (projRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Project tidak ditemukan' });
+    }
+    const project = projRes.rows[0];
+    const projectDir = project.repo_path || path.join(process.env.PROJECTS_BASE_DIR || '/mnt/d/explore/result_projek', project.slug);
+
+    // Prevent directory traversal attack
+    const safeRelPath = path.normalize(String(filePath)).replace(/^(\.\.[\/\\])+/, '');
+    const targetPath = path.join(projectDir, safeRelPath);
+
+    if (!targetPath.startsWith(path.resolve(projectDir))) {
+      return res.status(403).json({ error: 'Access denied outside project directory' });
+    }
+
+    if (!fs.existsSync(targetPath) || fs.statSync(targetPath).isDirectory()) {
+      return res.status(404).json({ error: 'File tidak ditemukan' });
+    }
+
+    // Check if binary file
+    const ext = path.extname(targetPath).toLowerCase();
+    const binaryExts = ['.docx', '.xlsx', '.pdf', '.zip', '.png', '.jpg', '.jpeg', '.ico'];
+    if (binaryExts.includes(ext)) {
+      return res.json({ 
+        filePath: safeRelPath, 
+        isBinary: true, 
+        content: `[Binary file: ${ext.toUpperCase()} - Silakan gunakan tombol download untuk melihat dokumen]` 
+      });
+    }
+
+    const content = fs.readFileSync(targetPath, 'utf8');
+    res.json({ filePath: safeRelPath, isBinary: false, content });
+  } catch (error: any) {
+    console.error('Error reading file content:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 6. POST /api/projects/:id/iterate (Autonomous In-Place Code Patching & Live PM2 Reload)
+router.post('/:id/iterate', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { prompt, iteration_type } = req.body;
+    const user = (req as any).user;
+
+    if (!prompt || !prompt.trim()) {
+      return res.status(400).json({ error: 'Instruksi iterasi / prompt perubahan diperlukan' });
+    }
+
+    const result = await iterateProjectPipeline(
+      id,
+      prompt.trim(),
+      iteration_type || 'FEATURE_UPDATE',
+      user?.id
+    );
+
+    res.json({
+      success: true,
+      message: `Iterasi ${result.versionTo} berhasil diterapkan & micro-app di-reload`,
+      data: result
+    });
+  } catch (error: any) {
+    console.error('Error iterating project:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 7. GET /api/projects/:id/revisions (Fetch Revision History)
+router.get('/:id/revisions', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT * FROM project_revisions WHERE project_id = $1 ORDER BY created_at DESC`,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (error: any) {
+    console.error('Error fetching revisions:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 8. POST /api/projects/:id/chat-pm (Contextual Interactive PM Chat with Sarah Jenkins)
+router.post('/:id/chat-pm', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message } = req.body;
+    const user = (req as any).user;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Pesan chat diperlukan' });
+    }
+
+    const projRes = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
+    if (projRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Project tidak ditemukan' });
+    }
+    const project = projRes.rows[0];
+
+    const senderTitle = user ? (user.role === 'OWNER' ? 'Owner / Founder' : `Klien (${user.name})`) : 'Owner';
+    const projectDir = project.repo_path || path.join(process.env.PROJECTS_BASE_DIR || '/mnt/d/explore/result_projek', project.slug);
+    
+    // Read quick summary of server.js and index.html if exists
+    let codeOverview = '';
+    const serverJsPath = path.join(projectDir, 'src', 'backend', 'server.js');
+    const indexHtmlPath = path.join(projectDir, 'src', 'frontend', 'index.html');
+    if (fs.existsSync(serverJsPath)) {
+      codeOverview += `Backend endpoints (server.js excerpt):\n${fs.readFileSync(serverJsPath, 'utf8').slice(0, 1000)}\n\n`;
+    }
+    if (fs.existsSync(indexHtmlPath)) {
+      codeOverview += `Frontend overview (index.html length: ${fs.statSync(indexHtmlPath).size} bytes)\n`;
+    }
+
+    const systemPrompt = `Kamu adalah Sarah Jenkins, Senior Product Manager & Technical Lead untuk proyek "${project.title}".
+Peranmu: Menjadi partner diskusi teknis & fungsional yang responsif, cerdas, solutif, dan ramah.
+Kamu memahami arsitektur proyek, fitur yang sudah live pada port ${project.port}, serta riwayat versi (${project.version || 'v1.0'}).
+Jika pengguna menanyakan rekomendasi fitur atau meminta saran perbaikan, berikan opsi konkrit dan tawarkan bahwa kamu dan tim Dev (Devron & Anya) dapat langsung mengimplementasikannya melalui tombol iterasi/patching.`;
+
+    const userPrompt = `Pesan dari ${senderTitle}: "${message}"
+Konteks Proyek:
+- Judul: ${project.title}
+- Deskripsi: ${project.description}
+- Versi Saat Ini: ${project.version || 'v1.0'}
+- Port Aktif: ${project.port}
+- Ringkasan Terakhir: ${project.last_iteration_summary || 'Rilis awal v1.0'}
+${codeOverview ? `- Ringkasan Kodingan: \n${codeOverview}` : ''}`;
+
+    const llmRes = await callAgentLLM('EMP-PM', systemPrompt, userPrompt, project.id);
+
+    res.json({
+      reply: llmRes.content,
+      agent: {
+        id: 'EMP-PM',
+        name: 'Sarah Jenkins',
+        title: 'Senior Product Manager',
+        avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=SarahPM'
+      }
+    });
+  } catch (error: any) {
+    console.error('Error in project PM chat:', error);
     res.status(500).json({ error: error.message });
   }
 });
