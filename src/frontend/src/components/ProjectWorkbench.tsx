@@ -107,6 +107,7 @@ export default function ProjectWorkbench({
   const [dbTables, setDbTables] = useState<DatabaseTable[]>([]);
   const [selectedTableName, setSelectedTableName] = useState<string>('');
   const [isDbLoading, setIsDbLoading] = useState<boolean>(false);
+  const [isExportingDb, setIsExportingDb] = useState<boolean>(false);
 
   // Revisions State
   const [revisions, setRevisions] = useState<RevisionItem[]>([]);
@@ -130,7 +131,11 @@ export default function ProjectWorkbench({
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   const activePort = project.port || 5001;
-  const liveAppUrl = `http://${window.location.hostname || 'localhost'}:${activePort}`;
+  // If accessing from external tunnel / remote device, use the embedded preview reverse proxy /api/projects/:id/preview
+  const isRemote = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+  const liveAppUrl = isRemote 
+    ? `${window.location.origin}/api/projects/${project.id}/preview/`
+    : `http://${window.location.hostname || 'localhost'}:${activePort}`;
 
   // Fetch Project File Tree
   const fetchFileTree = async () => {
@@ -207,6 +212,51 @@ export default function ProjectWorkbench({
       console.warn('Fetch database error:', e);
     } finally {
       setIsDbLoading(false);
+    }
+  };
+
+  // Export Database Handler (Schema, SQL Data, JSON Dump)
+  const handleExportDatabase = async (format: 'schema' | 'data' | 'json', tableName?: string) => {
+    if (isExportingDb) return;
+    setIsExportingDb(true);
+    try {
+      const activeToken = authToken || localStorage.getItem('company_os_token') || '';
+      let url = `${apiBase}/projects/${project.id}/database/export?format=${format}`;
+      if (tableName) {
+        url += `&table=${encodeURIComponent(tableName)}`;
+      }
+
+      const headers: Record<string, string> = {};
+      if (activeToken) headers['Authorization'] = `Bearer ${activeToken}`;
+
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        alert(errJson.error || 'Gagal mengekspor database project.');
+        return;
+      }
+
+      const contentDisposition = res.headers.get('Content-Disposition');
+      let filename = `database-export-${format}.${format === 'json' ? 'json' : 'sql'}`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^";]+)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err: any) {
+      console.error('Export database error:', err);
+      alert('Terjadi kesalahan saat mengunduh database: ' + (err.message || err));
+    } finally {
+      setIsExportingDb(false);
     }
   };
 
@@ -803,7 +853,7 @@ export default function ProjectWorkbench({
 
                   return (
                     <>
-                      <div style={{ padding: '0.5rem 1rem', borderBottom: '1px solid #1e293b', backgroundColor: '#090d16', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ padding: '0.5rem 1rem', borderBottom: '1px solid #1e293b', backgroundColor: '#090d16', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc', fontFamily: 'monospace' }}>
                             {currentTable.name}
@@ -813,25 +863,97 @@ export default function ProjectWorkbench({
                           </span>
                         </div>
 
-                        <button
-                          onClick={fetchProjectDatabase}
-                          style={{
-                            background: 'rgba(56, 189, 248, 0.1)',
-                            border: '1px solid rgba(56, 189, 248, 0.25)',
-                            color: '#38bdf8',
-                            borderRadius: '4px',
-                            padding: '3px 8px',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          <RefreshCw size={12} className={isDbLoading ? 'spin-slow' : ''} />
-                          Reload Data
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          {/* Export Action Buttons */}
+                          <button
+                            onClick={() => handleExportDatabase('schema')}
+                            disabled={isExportingDb}
+                            title="Export DDL SQL Schema (CREATE TABLE)"
+                            style={{
+                              background: 'rgba(14, 165, 233, 0.12)',
+                              border: '1px solid rgba(14, 165, 233, 0.3)',
+                              color: '#38bdf8',
+                              borderRadius: '4px',
+                              padding: '3px 8px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              cursor: isExportingDb ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              opacity: isExportingDb ? 0.6 : 1
+                            }}
+                          >
+                            <Download size={11} />
+                            <span>SQL Schema</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleExportDatabase('data')}
+                            disabled={isExportingDb}
+                            title="Export Full SQL Dump with DML INSERT statements"
+                            style={{
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              color: '#34d399',
+                              borderRadius: '4px',
+                              padding: '3px 8px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              cursor: isExportingDb ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              opacity: isExportingDb ? 0.6 : 1
+                            }}
+                          >
+                            <Download size={11} />
+                            <span>SQL + Data</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleExportDatabase('json')}
+                            disabled={isExportingDb}
+                            title="Export structured JSON database dump"
+                            style={{
+                              background: 'rgba(245, 158, 11, 0.12)',
+                              border: '1px solid rgba(245, 158, 11, 0.3)',
+                              color: '#fbbf24',
+                              borderRadius: '4px',
+                              padding: '3px 8px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              cursor: isExportingDb ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              opacity: isExportingDb ? 0.6 : 1
+                            }}
+                          >
+                            <Download size={11} />
+                            <span>JSON Dump</span>
+                          </button>
+
+                          <button
+                            onClick={fetchProjectDatabase}
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              border: '1px solid #334155',
+                              color: '#94a3b8',
+                              borderRadius: '4px',
+                              padding: '3px 8px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <RefreshCw size={11} className={isDbLoading ? 'spin-slow' : ''} />
+                            <span>Reload</span>
+                          </button>
+                        </div>
                       </div>
 
                       <div style={{ flex: 1, overflow: 'auto' }}>
@@ -891,7 +1013,10 @@ export default function ProjectWorkbench({
                     <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Product Requirement Document</div>
                   </div>
                   <button
-                    onClick={() => window.open(`${apiBase}/projects/${project.id}/download-file?filename=01_PRD.docx`, '_blank')}
+                    onClick={() => {
+                      const activeToken = authToken || localStorage.getItem('company_os_token') || '';
+                      window.open(`${apiBase}/projects/${project.id}/download-file?filename=01_PRD.docx&token=${encodeURIComponent(activeToken)}`, '_blank');
+                    }}
                     style={{ backgroundColor: '#0284c7', color: '#fff', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '0.375rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                   >
                     <Download size={13} />
@@ -906,7 +1031,10 @@ export default function ProjectWorkbench({
                     <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Design Spec & User Flow</div>
                   </div>
                   <button
-                    onClick={() => window.open(`${apiBase}/projects/${project.id}/download-file?filename=02_UI_UX.docx`, '_blank')}
+                    onClick={() => {
+                      const activeToken = authToken || localStorage.getItem('company_os_token') || '';
+                      window.open(`${apiBase}/projects/${project.id}/download-file?filename=02_UI_UX.docx&token=${encodeURIComponent(activeToken)}`, '_blank');
+                    }}
                     style={{ backgroundColor: '#0284c7', color: '#fff', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '0.375rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                   >
                     <Download size={13} />
@@ -921,7 +1049,10 @@ export default function ProjectWorkbench({
                     <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>System Blueprint & ADR</div>
                   </div>
                   <button
-                    onClick={() => window.open(`${apiBase}/projects/${project.id}/download-file?filename=03_Architecture.docx`, '_blank')}
+                    onClick={() => {
+                      const activeToken = authToken || localStorage.getItem('company_os_token') || '';
+                      window.open(`${apiBase}/projects/${project.id}/download-file?filename=03_Architecture.docx&token=${encodeURIComponent(activeToken)}`, '_blank');
+                    }}
                     style={{ backgroundColor: '#0284c7', color: '#fff', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '0.375rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                   >
                     <Download size={13} />
@@ -936,7 +1067,10 @@ export default function ProjectWorkbench({
                     <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>SQA Test Verification</div>
                   </div>
                   <button
-                    onClick={() => window.open(`${apiBase}/projects/${project.id}/download-file?filename=04_QA_Test_Report.docx`, '_blank')}
+                    onClick={() => {
+                      const activeToken = authToken || localStorage.getItem('company_os_token') || '';
+                      window.open(`${apiBase}/projects/${project.id}/download-file?filename=04_QA_Test_Report.docx&token=${encodeURIComponent(activeToken)}`, '_blank');
+                    }}
                     style={{ backgroundColor: '#0284c7', color: '#fff', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '0.375rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                   >
                     <Download size={13} />
@@ -951,7 +1085,10 @@ export default function ProjectWorkbench({
                     <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Spreadsheet Uji Akseptasi</div>
                   </div>
                   <button
-                    onClick={() => window.open(`${apiBase}/projects/${project.id}/download-file?filename=SIT_UAT_Test_Matrix.xlsx`, '_blank')}
+                    onClick={() => {
+                      const activeToken = authToken || localStorage.getItem('company_os_token') || '';
+                      window.open(`${apiBase}/projects/${project.id}/download-file?filename=SIT_UAT_Test_Matrix.xlsx&token=${encodeURIComponent(activeToken)}`, '_blank');
+                    }}
                     style={{ backgroundColor: '#059669', color: '#fff', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '0.375rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                   >
                     <Download size={13} />
@@ -966,7 +1103,10 @@ export default function ProjectWorkbench({
                     <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Source Code + Dokumen</div>
                   </div>
                   <button
-                    onClick={() => window.open(`${apiBase}/projects/${project.id}/download-zip`, '_blank')}
+                    onClick={() => {
+                      const activeToken = authToken || localStorage.getItem('company_os_token') || '';
+                      window.open(`${apiBase}/projects/${project.id}/download-zip?token=${encodeURIComponent(activeToken)}`, '_blank');
+                    }}
                     style={{ backgroundColor: '#38bdf8', color: '#0f172a', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '0.375rem', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                   >
                     <Download size={13} />

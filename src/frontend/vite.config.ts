@@ -12,6 +12,11 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:4000',
         changeOrigin: true,
+      },
+      '/preview': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/preview/, '/api/preview')
       }
     }
   },
@@ -22,6 +27,11 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:4000',
         changeOrigin: true,
+      },
+      '/preview': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/preview/, '/api/preview')
       }
     }
   }

@@ -33,15 +33,21 @@ export function verifyToken(token: string): any | null {
   }
 }
 
-// Authentication Middleware
+// Authentication Middleware (Supports Authorization Header & ?token= Query Param for Direct Downloads)
 export async function authenticateUser(req: Request, res: Response, next: NextFunction) {
+  let token = '';
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (req.query && req.query.token) {
+    token = String(req.query.token);
+  }
+
+  if (!token) {
     (req as any).user = null;
     return next();
   }
 
-  const token = authHeader.split(' ')[1];
   const decoded = verifyToken(token);
   if (!decoded || !decoded.userId) {
     (req as any).user = null;

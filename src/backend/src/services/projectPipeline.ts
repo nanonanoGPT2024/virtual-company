@@ -38,7 +38,520 @@ export function extractCodeBlock(text: string, lang: string): string {
   if (match && match[1] && match[1].trim().length > 50) {
     return match[1].trim();
   }
-  return text.trim();
+  // Strip any residual markdown wrappers
+  let cleaned = text.trim();
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '');
+  }
+  return cleaned.trim();
+}
+
+export interface DomainMeta {
+  domainKey: string;
+  domainLabel: string;
+  icon: string;
+  endpointSlug: string;
+  itemNoun: string;
+  kpiLabels: [string, string, string, string];
+  formTitle: string;
+  formSubtitle: string;
+  fields: Array<{
+    name: string;
+    label: string;
+    type: 'text' | 'number' | 'select' | 'textarea';
+    placeholder?: string;
+    options?: string[];
+    required?: boolean;
+    colSpan?: number;
+  }>;
+  columns: Array<{
+    key: string;
+    label: string;
+  }>;
+  statusColors: Record<string, string>;
+  initialRows: any[];
+}
+
+export function detectDomainCategory(title: string, description: string = ''): DomainMeta {
+  const t = (title || '').toLowerCase();
+  const d = (description || '').toLowerCase();
+  const c = `${t} ${d}`;
+
+  // 1. SEO / Audit / Analytics / GEO / AEO / LocalizeAudit
+  if (
+    c.includes('seo') || c.includes('audit') || c.includes('localize') || c.includes('geo') || 
+    c.includes('aeo') || c.includes('search engine') || c.includes('readability') || 
+    c.includes('ranking') || c.includes('crawler') || c.includes('perplexity') || 
+    c.includes('searchgpt') || c.includes('nap') || c.includes('google maps') || 
+    c.includes('schema markup') || c.includes('sitasi') || c.includes('citation') || c.includes('traffic')
+  ) {
+    return {
+      domainKey: 'SEO_AUDIT_ANALYTICS',
+      domainLabel: 'SEO & AI Search Audit',
+      icon: 'search-check',
+      endpointSlug: 'audits',
+      itemNoun: 'Audit URL & Target Domain',
+      kpiLabels: ['Total URL Diaudit', 'Perlu Optimasi', 'Score > 85 (Optimal)', 'Rata-rata Skor GEO'],
+      formTitle: 'Jalankan Audit AI Search & SEO',
+      formSubtitle: 'Analisis visibilitas AI engine, schema markup, dan performa GEO',
+      fields: [
+        { name: 'url', label: 'Target URL / Domain', type: 'text', placeholder: 'https://example.com/blog/article', required: true, colSpan: 2 },
+        { name: 'focus_keyword', label: 'Target Keyword / Entitas', type: 'text', placeholder: 'Jasa Kopi Artisan Jakarta', required: true },
+        { name: 'audit_type', label: 'Tipe Pemeriksaan', type: 'select', options: ['Generative Engine (GEO)', 'Local Business / NAP', 'Technical SEO', 'Schema & Citations'], required: true },
+        { name: 'notes', label: 'Catatan / Target Kompetitor', type: 'textarea', placeholder: 'Fokus pada citation Google AI Overviews & Perplexity...', required: false, colSpan: 2 }
+      ],
+      columns: [
+        { key: 'url', label: 'Target URL' },
+        { key: 'focus_keyword', label: 'Keyword / Entitas' },
+        { key: 'audit_type', label: 'Tipe Audit' },
+        { key: 'score', label: 'Score' },
+        { key: 'status', label: 'Status' }
+      ],
+      statusColors: {
+        'OPTIMAL': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        'NEEDS_REVIEW': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        'CRITICAL': 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+        'ANALYZING': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+      },
+      initialRows: [
+        { id: 1, url: 'https://virtulabs.id/case-studies', focus_keyword: 'Autonomous AI Enterprise', audit_type: 'Generative Engine (GEO)', score: 94, findings: 'Schema valid, citasi tinggi pada SearchGPT & Perplexity', status: 'OPTIMAL', created_at: new Date().toISOString() },
+        { id: 2, url: 'https://kedaikopisenja.com', focus_keyword: 'Coffee Shop Jakarta Selatan', audit_type: 'Local Business / NAP', score: 68, findings: 'NAP tidak konsisten di Google Maps, rating 3.8 belum dibalas', status: 'NEEDS_REVIEW', created_at: new Date().toISOString() },
+        { id: 3, url: 'https://techblog.io/p/modern-saas', focus_keyword: 'Micro SaaS Architecture', audit_type: 'Technical SEO', score: 45, findings: 'LLM crawler terblokir robots.txt, metadata hilang', status: 'CRITICAL', created_at: new Date().toISOString() }
+      ]
+    };
+  }
+
+  // 2. AI Tool / LLM Proxy / CostGuard / Token Minifier / Latency Router
+  if (
+    c.includes('costguard') || c.includes('cache proxy') || c.includes('token') || 
+    c.includes('minifier') || c.includes('latency') || c.includes('router') || 
+    c.includes('llm') || c.includes('prompt') || c.includes('openai') || 
+    c.includes('anthropic') || c.includes('proxy') || c.includes('cost slasher') || 
+    c.includes('costwatch') || c.includes('ai bot') || c.includes('agentic')
+  ) {
+    return {
+      domainKey: 'AI_PROXY_TOKEN_MGMT',
+      domainLabel: 'LLM Proxy & AI Gateway',
+      icon: 'cpu',
+      endpointSlug: 'requests',
+      itemNoun: 'Request / Model Session',
+      kpiLabels: ['Total LLM Requests', 'Token Saved (%)', 'Avg Latency (ms)', 'Cost Slashed ($)'],
+      formTitle: 'Kirim / Simulasikan Request LLM',
+      formSubtitle: 'Intersepsi gateway, minifikasi token, dan semantik smart-cache',
+      fields: [
+        { name: 'app_name', label: 'Consumer App / Client ID', type: 'text', placeholder: 'Production-ChatBot-v2', required: true },
+        { name: 'provider_model', label: 'Primary LLM Model', type: 'select', options: ['GPT-4o (OpenAI)', 'Claude 3.5 Sonnet', 'Gemini 1.5 Flash', 'Groq Llama 3 70B'], required: true },
+        { name: 'max_budget', label: 'Daily Budget Limit ($)', type: 'number', placeholder: '50', required: true },
+        { name: 'routing_mode', label: 'Optimization Policy', type: 'select', options: ['Auto Minify & Semantic Cache', 'Lowest Latency (<50ms)', 'Lowest Cost Fallback', 'Strict Security / Anti-DDoS'], required: true },
+        { name: 'prompt_sample', label: 'Payload Prompt / Query', type: 'textarea', placeholder: 'Kirim instruksi prompt untuk diuji kompresinya...', required: false, colSpan: 2 }
+      ],
+      columns: [
+        { key: 'app_name', label: 'Client / App' },
+        { key: 'provider_model', label: 'Model' },
+        { key: 'tokens_saved', label: 'Token Saved' },
+        { key: 'latency_ms', label: 'Latency' },
+        { key: 'status', label: 'Status' }
+      ],
+      statusColors: {
+        'CACHED': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        'ROUTED': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+        'THROTTLED': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        'BLOCKED': 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+      },
+      initialRows: [
+        { id: 1, app_name: 'Customer-Service-Bot', provider_model: 'Claude 3.5 Sonnet', tokens_saved: '42% (PromptTrim)', latency_ms: '48ms', cost_usd: 0.0012, status: 'CACHED', created_at: new Date().toISOString() },
+        { id: 2, app_name: 'CodeAssistant-IDE', provider_model: 'GPT-4o (OpenAI)', tokens_saved: '18% (Compressed)', latency_ms: '220ms', cost_usd: 0.0084, status: 'ROUTED', created_at: new Date().toISOString() },
+        { id: 3, app_name: 'Analytics-Batch-Job', provider_model: 'Gemini 1.5 Flash', tokens_saved: '65% (Semantic Match)', latency_ms: '35ms', cost_usd: 0.0004, status: 'CACHED', created_at: new Date().toISOString() }
+      ]
+    };
+  }
+
+  // 3. Healthcare / Telemedicine / Clinic / Triage
+  if (
+    c.includes('telemedis') || c.includes('puskesmas') || c.includes('diagnosa') || 
+    c.includes('klinik') || c.includes('dokter') || c.includes('pasien') || 
+    c.includes('medik') || c.includes('rumah sakit') || c.includes('obat') || 
+    c.includes('farmasi') || c.includes('triase') || c.includes('health') || c.includes('hospital')
+  ) {
+    return {
+      domainKey: 'HEALTHCARE_TELEMEDICINE',
+      domainLabel: 'Telemedisin & Triase Pasien',
+      icon: 'stethoscope',
+      endpointSlug: 'consultations',
+      itemNoun: 'Pasien / Konsultasi',
+      kpiLabels: ['Total Pasien Terdaftar', 'Menunggu Triase', 'Kasus Emergency', 'Selesai Dilayani'],
+      formTitle: 'Pendaftaran & Triase AI Pasien',
+      formSubtitle: 'Klasifikasi urgensi gejala dan rekomendasi rujukan poli',
+      fields: [
+        { name: 'name', label: 'Nama Lengkap Pasien', type: 'text', placeholder: 'Budi Santoso', required: true },
+        { name: 'age', label: 'Usia (Tahun)', type: 'number', placeholder: '42', required: true },
+        { name: 'gender', label: 'Jenis Kelamin', type: 'select', options: ['Laki-laki', 'Perempuan'], required: true },
+        { name: 'recommended_poly', label: 'Poli Tujuan', type: 'select', options: ['Poli Umum', 'Poli Gigi', 'Poli KIA & Anak', 'Poli Lansia', 'IGD / Tindakan Darurat'], required: true },
+        { name: 'symptoms', label: 'Keluhan Gejala Utama', type: 'textarea', placeholder: 'Deskripsikan gejala yang dialami pasien...', required: true, colSpan: 2 }
+      ],
+      columns: [
+        { key: 'name', label: 'Nama Pasien' },
+        { key: 'age_gender', label: 'Usia / JK' },
+        { key: 'symptoms', label: 'Keluhan Gejala' },
+        { key: 'recommended_poly', label: 'Poli' },
+        { key: 'triage_level', label: 'Triase' }
+      ],
+      statusColors: {
+        'EMERGENCY': 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+        'URGENT': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        'ROUTINE': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+        'SELESAI': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+      },
+      initialRows: [
+        { id: 1, name: 'Budi Santoso', age: 42, gender: 'Laki-laki', symptoms: 'Demam tinggi 3 hari, batuk kering, sesak ringan', triage_level: 'URGENT', recommended_poly: 'Poli Umum', status: 'SEDANG_DIPERIKSA', created_at: new Date().toISOString() },
+        { id: 2, name: 'Siti Rahma', age: 29, gender: 'Perempuan', symptoms: 'Pemeriksaan kehamilan rutin trimester 2', triage_level: 'ROUTINE', recommended_poly: 'Poli KIA & Anak', status: 'MENUNGGU', created_at: new Date().toISOString() },
+        { id: 3, name: 'H. Supardi', age: 67, gender: 'Laki-laki', symptoms: 'Nyeri dada menjalar ke punggung kiri, keringat dingin', triage_level: 'EMERGENCY', recommended_poly: 'IGD / Tindakan Darurat', status: 'RUJUK_RSUD', created_at: new Date().toISOString() }
+      ]
+    };
+  }
+
+  // 4. POS / Cafe / Coffee / Resto / Subscription Bot
+  if (
+    c.includes('pos') || c.includes('kopi') || c.includes('cafe') || c.includes('resto') || 
+    c.includes('kasir') || c.includes('menu') || c.includes('barista') || 
+    c.includes('makanan') || c.includes('minuman') || c.includes('coffee') || 
+    c.includes('voucher') || c.includes('subscription') || c.includes('food')
+  ) {
+    return {
+      domainKey: 'POS_RETAIL_FB',
+      domainLabel: 'POS Kasir & Coffee Voucher',
+      icon: 'coffee',
+      endpointSlug: 'orders',
+      itemNoun: 'Pesanan / Transaksi Kasir',
+      kpiLabels: ['Total Pesanan', 'Sedang Diracik', 'Siap Disajikan', 'Total Omset (Rp)'],
+      formTitle: 'Buat Pesanan / Voucher Baru',
+      formSubtitle: 'Input pesanan menu meja kasir & voucher langganan QRIS',
+      fields: [
+        { name: 'customer', label: 'Nama Pelanggan / Member', type: 'text', placeholder: 'Dimas Wicaksono', required: true },
+        { name: 'item', label: 'Item Menu / Paket', type: 'select', options: ['Kopi Susu Aren Signature', 'Matcha Latte Oatmilk', 'Croissant Butter Warm', 'Paket Langganan 30 Cup', 'Manual Brew V60 Flores'], required: true },
+        { name: 'price', label: 'Harga Total (Rp)', type: 'number', placeholder: '25000', required: true },
+        { name: 'payment_method', label: 'Metode Pembayaran', type: 'select', options: ['QRIS Auto-Settle', 'Tunai / Cash', 'Voucher Subscription', 'Debit/Credit Card'], required: true },
+        { name: 'notes', label: 'Catatan Barista / Khusus', type: 'textarea', placeholder: 'Less ice, normal sugar, oat milk substitute...', required: false, colSpan: 2 }
+      ],
+      columns: [
+        { key: 'customer', label: 'Pelanggan' },
+        { key: 'item', label: 'Menu Pesanan' },
+        { key: 'price', label: 'Total' },
+        { key: 'payment_method', label: 'Bayar' },
+        { key: 'status', label: 'Status' }
+      ],
+      statusColors: {
+        'BREWING': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        'READY': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+        'SERVED': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        'CANCELLED': 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+      },
+      initialRows: [
+        { id: 1, customer: 'Dimas Wicaksono', item: 'Kopi Susu Aren Signature', price: 22000, payment_method: 'QRIS Auto-Settle', notes: 'Less sugar, extra shot', status: 'BREWING', created_at: new Date().toISOString() },
+        { id: 2, customer: 'Amanda Putri', item: 'Matcha Latte Oatmilk', price: 28000, payment_method: 'Voucher Subscription', notes: 'Hot, no whipped cream', status: 'READY', created_at: new Date().toISOString() },
+        { id: 3, customer: 'Rian Firmansyah', item: 'Paket Langganan 30 Cup', price: 450000, payment_method: 'QRIS Auto-Settle', notes: 'Voucher #081234987', status: 'SERVED', created_at: new Date().toISOString() }
+      ]
+    };
+  }
+
+  // 5. CRM / Leads / Sales Pipeline / WhatsApp Outreach
+  if (
+    c.includes('crm') || c.includes('lead') || c.includes('sales') || 
+    c.includes('outreach') || c.includes('customer relationship') || 
+    c.includes('prospek') || c.includes('pipeline') || c.includes('deal')
+  ) {
+    return {
+      domainKey: 'CRM_SALES_LEADS',
+      domainLabel: 'CRM & Sales Lead Hub',
+      icon: 'users',
+      endpointSlug: 'leads',
+      itemNoun: 'Lead / Calon Klien',
+      kpiLabels: ['Total Leads', 'Dalam Negosiasi', 'Won / Converted', 'Pipeline Value (Rp)'],
+      formTitle: 'Tambah Prospek / Lead Baru',
+      formSubtitle: 'Catat prospek deal, kontak WhatsApp, dan estimasi nilai proyek',
+      fields: [
+        { name: 'lead_name', label: 'Nama PIC / Perusahaan', type: 'text', placeholder: 'PT Sinergi Abadi', required: true },
+        { name: 'contact_phone', label: 'WhatsApp / Telepon', type: 'text', placeholder: '081234567890', required: true },
+        { name: 'deal_value', label: 'Estimasi Nilai Deal (Rp)', type: 'number', placeholder: '25000000', required: true },
+        { name: 'lead_stage', label: 'Stage Pipeline', type: 'select', options: ['NEW_INQUIRY', 'DISCOVERY_MEET', 'PROPOSAL_SENT', 'NEGOTIATION', 'CLOSED_WON'], required: true },
+        { name: 'requirements', label: 'Kebutuhan / Pain Point', type: 'textarea', placeholder: 'Membutuhkan custom AI chatbot untuk customer support 24/7...', required: false, colSpan: 2 }
+      ],
+      columns: [
+        { key: 'lead_name', label: 'Nama Prospek' },
+        { key: 'contact_phone', label: 'Kontak' },
+        { key: 'deal_value', label: 'Nilai Deal' },
+        { key: 'requirements', label: 'Kebutuhan' },
+        { key: 'status', label: 'Stage' }
+      ],
+      statusColors: {
+        'CLOSED_WON': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        'NEGOTIATION': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        'PROPOSAL_SENT': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+        'NEW_INQUIRY': 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+      },
+      initialRows: [
+        { id: 1, lead_name: 'PT Sinergi Digital', contact_phone: '081298765432', deal_value: 35000000, requirements: 'Integrasi LLM Gateway & Dashboard Eksekutif', status: 'NEGOTIATION', created_at: new Date().toISOString() },
+        { id: 2, lead_name: 'Klinik Medika Sehat', contact_phone: '081122334455', deal_value: 18000000, requirements: 'Sistem Triase AI & Antrean Pasien', status: 'CLOSED_WON', created_at: new Date().toISOString() },
+        { id: 3, lead_name: 'Logistik Nusantara', contact_phone: '081377889900', deal_value: 42000000, requirements: 'Modul Tracking Manifest Kurir Realtime', status: 'PROPOSAL_SENT', created_at: new Date().toISOString() }
+      ]
+    };
+  }
+
+  // 6. Logistics / Expedition / Shipping / Cargo
+  if (
+    c.includes('ekspedisi') || c.includes('logistik') || c.includes('kurir') || 
+    c.includes('paket') || c.includes('resi') || c.includes('shipping') || 
+    c.includes('cargo') || c.includes('delivery') || c.includes('freight')
+  ) {
+    return {
+      domainKey: 'LOGISTICS_EXPEDITION',
+      domainLabel: 'Logistik & Tracking Pengiriman',
+      icon: 'truck',
+      endpointSlug: 'shipments',
+      itemNoun: 'Resi Pengiriman',
+      kpiLabels: ['Total Pengiriman', 'Dalam Transit', 'Out for Delivery', 'Paket Terkirim'],
+      formTitle: 'Buat Resi / Manifest Pengiriman',
+      formSubtitle: 'Input data pengirim, penerima, armada kurir, dan berat kargo',
+      fields: [
+        { name: 'tracking_number', label: 'Nomor Resi / AWB', type: 'text', placeholder: 'EXP-8891-JKT', required: true },
+        { name: 'courier', label: 'Kurir / Armada', type: 'select', options: ['JNE Express', 'SiCepat Cargo', 'J&T Super', 'Kurir Instan / Dedicated'], required: true },
+        { name: 'sender', label: 'Pengirim (Kota Asal)', type: 'text', placeholder: 'Gudang Pusat Jakarta', required: true },
+        { name: 'recipient', label: 'Penerima (Kota Tujuan)', type: 'text', placeholder: 'Siti Rahma - Surabaya', required: true },
+        { name: 'weight_kg', label: 'Berat Kargo (Kg)', type: 'number', placeholder: '2.5', required: true },
+        { name: 'status_select', label: 'Status Awal', type: 'select', options: ['MANIFEST', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED'], required: true }
+      ],
+      columns: [
+        { key: 'tracking_number', label: 'No. Resi' },
+        { key: 'courier', label: 'Kurir' },
+        { key: 'route', label: 'Rute (Asal -> Tujuan)' },
+        { key: 'weight_kg', label: 'Berat' },
+        { key: 'status', label: 'Status' }
+      ],
+      statusColors: {
+        'DELIVERED': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        'OUT_FOR_DELIVERY': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+        'IN_TRANSIT': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        'MANIFEST': 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+      },
+      initialRows: [
+        { id: 1, tracking_number: 'EXP-9821-JKT', courier: 'JNE Express', sender: 'Gudang Pusat Jakarta', recipient: 'Budi Santoso (Surabaya)', weight_kg: 2.1, status: 'OUT_FOR_DELIVERY', created_at: new Date().toISOString() },
+        { id: 2, tracking_number: 'EXP-5542-BDG', courier: 'SiCepat Cargo', sender: 'Fashion Distro Bandung', recipient: 'Siti Rahma (Medan)', weight_kg: 4.8, status: 'IN_TRANSIT', created_at: new Date().toISOString() },
+        { id: 3, tracking_number: 'EXP-1109-SBY', courier: 'J&T Super', sender: 'Elektronik Maju Surabaya', recipient: 'Ahmad Fauzi (Bali)', weight_kg: 1.2, status: 'DELIVERED', created_at: new Date().toISOString() }
+      ]
+    };
+  }
+
+  // 7. Finance / Payroll / Invoicing / Billing
+  if (
+    c.includes('gaji') || c.includes('payroll') || c.includes('keuangan') || 
+    c.includes('finance') || c.includes('invoice') || c.includes('tagihan') || 
+    c.includes('reimburse') || c.includes('pembayaran') || c.includes('billing')
+  ) {
+    return {
+      domainKey: 'FINANCE_PAYROLL',
+      domainLabel: 'Finance, Invoice & Payroll',
+      icon: 'receipt',
+      endpointSlug: 'invoices',
+      itemNoun: 'Invoice / Slip Pembayaran',
+      kpiLabels: ['Total Tagihan', 'Pending Payment', 'Sudah Terbayar', 'Total Terbayar (Rp)'],
+      formTitle: 'Terbitkan Invoice / Slip Transaksi',
+      formSubtitle: 'Catat penerima tagihan, rincian nominal, dan tanggal jatuh tempo',
+      fields: [
+        { name: 'invoice_no', label: 'Nomor Invoice', type: 'text', placeholder: 'INV/2026/08/001', required: true },
+        { name: 'client_name', label: 'Klien / Penerima', type: 'text', placeholder: 'PT Megah Kreasi', required: true },
+        { name: 'amount', label: 'Jumlah Tagihan (Rp)', type: 'number', placeholder: '15000000', required: true },
+        { name: 'due_date', label: 'Jatuh Tempo', type: 'text', placeholder: '2026-09-05', required: true },
+        { name: 'description', label: 'Rincian Layanan / Pekerjaan', type: 'textarea', placeholder: 'Pengembangan Enterprise AI Integration...', required: false, colSpan: 2 }
+      ],
+      columns: [
+        { key: 'invoice_no', label: 'No. Invoice' },
+        { key: 'client_name', label: 'Klien / Penerima' },
+        { key: 'amount', label: 'Nominal' },
+        { key: 'due_date', label: 'Jatuh Tempo' },
+        { key: 'status', label: 'Status' }
+      ],
+      statusColors: {
+        'PAID': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        'SENT': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+        'OVERDUE': 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+        'DRAFT': 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+      },
+      initialRows: [
+        { id: 1, invoice_no: 'INV/2026/08/101', client_name: 'PT Megah Kreasi', amount: 18500000, due_date: '2026-09-01', description: 'Sprint 1 Architecture & AI Engine', status: 'PAID', created_at: new Date().toISOString() },
+        { id: 2, invoice_no: 'INV/2026/08/102', client_name: 'Studio Kopi Senja', amount: 4500000, due_date: '2026-08-30', description: 'Subscription Bot & POS Setup', status: 'SENT', created_at: new Date().toISOString() },
+        { id: 3, invoice_no: 'INV/2026/08/098', client_name: 'Klinik Prima Husada', amount: 12000000, due_date: '2026-08-20', description: 'Lisensi Telemedis Modul', status: 'OVERDUE', created_at: new Date().toISOString() }
+      ]
+    };
+  }
+
+  // 8. E-Commerce / Store / Marketplace / Catalog
+  if (
+    c.includes('ecommerce') || c.includes('e-commerce') || c.includes('toko') || 
+    c.includes('store') || c.includes('shop') || c.includes('marketplace') || 
+    c.includes('produk') || c.includes('katalog') || c.includes('catalog') || 
+    c.includes('cart') || c.includes('belanja') || c.includes('inventory') || 
+    c.includes('stok') || c.includes('retail')
+  ) {
+    return {
+      domainKey: 'ECOMMERCE_CATALOG',
+      domainLabel: 'E-Commerce & Inventory Hub',
+      icon: 'shopping-bag',
+      endpointSlug: 'products',
+      itemNoun: 'Katalog Produk',
+      kpiLabels: ['Total Produk', 'Stok Rendah (<10)', 'Produk Terlaris', 'Nilai Aset Stok (Rp)'],
+      formTitle: 'Tambah Produk ke Katalog',
+      formSubtitle: 'Kelola SKU, harga jual, kategori barang, dan stok unit',
+      fields: [
+        { name: 'product_name', label: 'Nama Produk / Item', type: 'text', placeholder: 'Wireless Mechanical Keyboard', required: true },
+        { name: 'sku', label: 'SKU Code', type: 'text', placeholder: 'ACC-KEY-001', required: true },
+        { name: 'price', label: 'Harga Jual (Rp)', type: 'number', placeholder: '850000', required: true },
+        { name: 'stock', label: 'Stok Unit', type: 'number', placeholder: '45', required: true },
+        { name: 'category', label: 'Kategori', type: 'select', options: ['Gadget & Peripherals', 'Fashion & Apparel', 'Home & Living', 'Digital Goods'], required: true },
+        { name: 'description', label: 'Deskripsi Produk', type: 'textarea', placeholder: 'Spesifikasi fitur utama produk...', required: false, colSpan: 2 }
+      ],
+      columns: [
+        { key: 'product_name', label: 'Nama Produk' },
+        { key: 'sku', label: 'SKU' },
+        { key: 'price', label: 'Harga' },
+        { key: 'stock', label: 'Stok' },
+        { key: 'status', label: 'Status' }
+      ],
+      statusColors: {
+        'IN_STOCK': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        'LOW_STOCK': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        'OUT_OF_STOCK': 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+      },
+      initialRows: [
+        { id: 1, product_name: 'Keychron K2 Pro Wireless', sku: 'KEY-KC2-PRO', price: 1450000, stock: 24, category: 'Gadget & Peripherals', status: 'IN_STOCK', created_at: new Date().toISOString() },
+        { id: 2, product_name: 'Ergonomic Desk Mat Leather', sku: 'MAT-LTHR-BLK', price: 220000, stock: 4, category: 'Home & Living', status: 'LOW_STOCK', created_at: new Date().toISOString() },
+        { id: 3, product_name: 'USB-C Magnetic Hub 8-in-1', sku: 'HUB-USBC-8IN', price: 499000, stock: 0, category: 'Gadget & Peripherals', status: 'OUT_OF_STOCK', created_at: new Date().toISOString() }
+      ]
+    };
+  }
+
+  // 9. Education / Course / LMS / Quiz
+  if (
+    c.includes('edukasi') || c.includes('kursus') || c.includes('course') || 
+    c.includes('belajar') || c.includes('siswa') || c.includes('kelas') || 
+    c.includes('materi') || c.includes('lms') || c.includes('sekolah') || c.includes('akademi')
+  ) {
+    return {
+      domainKey: 'EDUCATION_LMS',
+      domainLabel: 'E-Learning & Course Academy',
+      icon: 'graduation-cap',
+      endpointSlug: 'courses',
+      itemNoun: 'Modul / Kelas Belajar',
+      kpiLabels: ['Total Modul', 'Siswa Aktif', 'Tingkat Kelulusan', 'Avg Rating Siswa'],
+      formTitle: 'Buat Modul Kursus Baru',
+      formSubtitle: 'Rancang kurikulum materi, instruktur, dan tingkat kesulitan',
+      fields: [
+        { name: 'course_title', label: 'Judul Kursus / Modul', type: 'text', placeholder: 'Mastering AI Agent Engineering', required: true },
+        { name: 'instructor', label: 'Nama Instruktur / Mentor', type: 'text', placeholder: 'Dr. Aris & Tim VirtuLabs', required: true },
+        { name: 'level', label: 'Tingkat Kesulitan', type: 'select', options: ['Beginner', 'Intermediate', 'Advanced Expert'], required: true },
+        { name: 'duration_hours', label: 'Estimasi Durasi (Jam)', type: 'number', placeholder: '12', required: true },
+        { name: 'syllabus', label: 'Ringkasan Silabus Materi', type: 'textarea', placeholder: 'Poin-poin topik pembelajaran...', required: false, colSpan: 2 }
+      ],
+      columns: [
+        { key: 'course_title', label: 'Judul Modul' },
+        { key: 'instructor', label: 'Instruktur' },
+        { key: 'level', label: 'Level' },
+        { key: 'duration', label: 'Durasi' },
+        { key: 'status', label: 'Status' }
+      ],
+      statusColors: {
+        'PUBLISHED': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        'DRAFT': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        'ARCHIVED': 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+      },
+      initialRows: [
+        { id: 1, course_title: 'Fullstack AI Agent Engineering with Express & React', instructor: 'Devron & Anya', level: 'Advanced Expert', duration_hours: 18, status: 'PUBLISHED', created_at: new Date().toISOString() },
+        { id: 2, course_title: 'Generative Engine Optimization (GEO) untuk Bisnis', instructor: 'Dr. Aris', level: 'Intermediate', duration_hours: 8, status: 'PUBLISHED', created_at: new Date().toISOString() },
+        { id: 3, course_title: 'Prompt Optimization & Cost Reduction Playbook', instructor: 'Sentinel', level: 'Beginner', duration_hours: 4, status: 'DRAFT', created_at: new Date().toISOString() }
+      ]
+    };
+  }
+
+  // 10. Laundry / Service / Kiloan
+  if (c.includes('laundry') || c.includes('cuci') || c.includes('setrika') || c.includes('kiloan')) {
+    return {
+      domainKey: 'LAUNDRY_SERVICE',
+      domainLabel: 'Manajemen Laundry & Dry Clean',
+      icon: 'shirt',
+      endpointSlug: 'orders',
+      itemNoun: 'Order Cucian',
+      kpiLabels: ['Total Order Laundry', 'Dalam Proses Cuci', 'Siap Diambil Klien', 'Total Pendapatan (Rp)'],
+      formTitle: 'Penerimaan Cucian Baru',
+      formSubtitle: 'Catat data pelanggan, paket layanan, dan timbangan kiloan',
+      fields: [
+        { name: 'customer', label: 'Nama Pelanggan', type: 'text', placeholder: 'Ibu Ratna', required: true },
+        { name: 'phone', label: 'No. WhatsApp', type: 'text', placeholder: '08123456789', required: true },
+        { name: 'service_type', label: 'Paket Layanan', type: 'select', options: ['Cuci Komplit Kilat 1 Hari', 'Cuci Lipat Reguler 2 Hari', 'Bedcover King & Selimut', 'Dry Clean Jas / Gaun'], required: true },
+        { name: 'weight_kg', label: 'Berat Timbangan (Kg)', type: 'number', placeholder: '4.5', required: true },
+        { name: 'notes', label: 'Catatan Khusus Pakaian', type: 'textarea', placeholder: 'Pisahkan pakaian putih, parfum aroma lavender...', required: false, colSpan: 2 }
+      ],
+      columns: [
+        { key: 'customer', label: 'Pelanggan' },
+        { key: 'service_type', label: 'Layanan' },
+        { key: 'weight_kg', label: 'Berat' },
+        { key: 'total_price', label: 'Total Bayar' },
+        { key: 'status', label: 'Status' }
+      ],
+      statusColors: {
+        'SIAP_AMBIL': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        'DISETRIKA': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+        'DICUCI': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        'MENUNGGU': 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+      },
+      initialRows: [
+        { id: 1, customer: 'Budi Santoso', phone: '08123456789', service_type: 'Cuci Komplit Kilat 1 Hari', weight_kg: 4.5, total_price: 36000, status: 'DICUCI', created_at: new Date().toISOString() },
+        { id: 2, customer: 'Ibu Ratna', phone: '08198765432', service_type: 'Bedcover King & Selimut', weight_kg: 6.0, total_price: 60000, status: 'SIAP_AMBIL', created_at: new Date().toISOString() }
+      ]
+    };
+  }
+
+  // 11. Dynamic Adaptive General SaaS (Tailored dynamically to Title & Description keywords)
+  const cleanTitle = title || 'Enterprise Micro-SaaS';
+  const cleanDesc = description || 'Platform otomatisasi dan analitik data operasional modern';
+  
+  // Extract key concept from title
+  const words = cleanTitle.split(/\s+/).filter(w => w.length > 2);
+  const primaryEntity = words[0] || 'Unit';
+
+  return {
+    domainKey: 'DYNAMIC_ENTERPRISE_SAAS',
+    domainLabel: `${cleanTitle} Platform`,
+    icon: 'sparkles',
+    endpointSlug: 'records',
+    itemNoun: `Entri ${cleanTitle}`,
+    kpiLabels: [`Total ${primaryEntity}`, `Aktif / Diproses`, `Optimal / Selesai`, 'Performa Index (%)'],
+    formTitle: `Entri Data ${cleanTitle}`,
+    formSubtitle: cleanDesc.slice(0, 80) + '...',
+    fields: [
+      { name: 'name', label: `Nama Target / Entitas ${primaryEntity}`, type: 'text', placeholder: `Contoh Target ${primaryEntity} 01`, required: true },
+      { name: 'category', label: 'Kategori / Segmentasi', type: 'select', options: ['Tier 1 / Priority', 'Operational Core', 'Automated Integration', 'General Activity'], required: true },
+      { name: 'priority_level', label: 'Tingkat Prioritas', type: 'select', options: ['High Priority', 'Standard', 'Low'], required: true },
+      { name: 'target_value', label: 'Estimasi Nilai / Metrik', type: 'number', placeholder: '100', required: false },
+      { name: 'details', label: 'Rincian Operasional & Catatan', type: 'textarea', placeholder: 'Keterangan lengkap sesuai kebutuhan...', required: false, colSpan: 2 }
+    ],
+    columns: [
+      { key: 'name', label: 'Nama Target' },
+      { key: 'category', label: 'Kategori' },
+      { key: 'priority_level', label: 'Prioritas' },
+      { key: 'target_value', label: 'Metrik' },
+      { key: 'status', label: 'Status' }
+    ],
+    statusColors: {
+      'OPTIMAL': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      'ACTIVE': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+      'PENDING': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+      'ARCHIVED': 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+    },
+    initialRows: [
+      { id: 1, name: `${cleanTitle} Master Node 01`, category: 'Tier 1 / Priority', priority_level: 'High Priority', target_value: 95, status: 'OPTIMAL', created_at: new Date().toISOString() },
+      { id: 2, name: `${cleanTitle} Sub-Module Alpha`, category: 'Operational Core', priority_level: 'Standard', target_value: 80, status: 'ACTIVE', created_at: new Date().toISOString() },
+      { id: 3, name: `${cleanTitle} Pipeline Stream B`, category: 'Automated Integration', priority_level: 'Standard', target_value: 72, status: 'ACTIVE', created_at: new Date().toISOString() }
+    ]
+  };
 }
 
 export async function runProjectPipeline(projectId: string, options?: PipelineOptions) {
@@ -217,54 +730,42 @@ Formatkan: Tech Stack (Node.js/Express + Tailwind), Database Model (${options?.s
       };
       fs.writeFileSync(path.join(projectDir, 'package.json'), JSON.stringify(rootPackageJson, null, 2));
 
-      // Domain Classifier & Context Preparation
-      const titleLower = (project.title || '').toLowerCase();
-      const descLower = (project.description || project.goal || '').toLowerCase();
-      const combinedContext = `${titleLower} ${descLower}`;
+      // Domain Classifier & Dynamic Context Preparation via detectDomainCategory
+      const domainMeta = detectDomainCategory(project.title, project.description || project.goal || '');
+      const domainCategory = domainMeta.domainKey;
 
-      const isHealth = combinedContext.includes('telemedis') || combinedContext.includes('puskesmas') || combinedContext.includes('diagnosa') || combinedContext.includes('klinik') || combinedContext.includes('dokter') || combinedContext.includes('pasien') || combinedContext.includes('medik') || combinedContext.includes('rumah sakit') || combinedContext.includes('obat') || combinedContext.includes('farmasi') || combinedContext.includes('triase');
-      const isPos = combinedContext.includes('pos') || combinedContext.includes('kopi') || combinedContext.includes('cafe') || combinedContext.includes('resto') || combinedContext.includes('kasir') || combinedContext.includes('menu') || combinedContext.includes('barista') || combinedContext.includes('makanan') || combinedContext.includes('minuman');
-      const isLaundry = combinedContext.includes('laundry') || combinedContext.includes('cuci') || combinedContext.includes('setrika') || combinedContext.includes('kiloan');
-      const isLogistics = combinedContext.includes('ekspedisi') || combinedContext.includes('logistik') || combinedContext.includes('kurir') || combinedContext.includes('paket') || combinedContext.includes('resi') || combinedContext.includes('shipping') || combinedContext.includes('cargo');
-      const isFinance = combinedContext.includes('gaji') || combinedContext.includes('payroll') || combinedContext.includes('keuangan') || combinedContext.includes('finance') || combinedContext.includes('invoice') || combinedContext.includes('tagihan') || combinedContext.includes('reimburse');
-
-      let domainCategory = "GENERAL_SAAS";
-      if (isHealth) domainCategory = "HEALTHCARE_TELEMEDICINE";
-      else if (isPos) domainCategory = "POS_RETAIL_FB";
-      else if (isLaundry) domainCategory = "LAUNDRY_SERVICE";
-      else if (isLogistics) domainCategory = "LOGISTICS_EXPEDITION";
-      else if (isFinance) domainCategory = "FINANCE_PAYROLL";
-
-      console.log(`[Dynamic CodeGen Pipeline] Domain detected: ${domainCategory} for ${project.title}`);
+      console.log(`[Dynamic CodeGen Pipeline] Domain detected: ${domainCategory} (${domainMeta.domainLabel}) for ${project.title}`);
 
       // =========================================================================
       // SUB-TASK A: DEVRON (Backend Dev) - Express API with Domain Mock Database
       // =========================================================================
-      const devronBackendPrompt = `Kamu adalah Devron, Lead Backend Engineer di software studio.
-Tugasmu: Tuliskan file Node.js Express Backend ("server.js") LENGKAP siap jalan untuk proyek ini:
+      const devronBackendPrompt = `Kamu adalah Devron, Lead Backend Engineer di software studio kelas dunia.
+Tugasmu: Tuliskan file Node.js Express Backend ("server.js") LENGKAP, SIAP JALAN, dan SPESIFIK untuk proyek ini:
 
 Judul Proyek: "${project.title}"
-Deskripsi: "${project.description || project.goal}"
-Kategori Domain: ${domainCategory}
+Deskripsi / Problem & Solution: "${project.description || project.goal}"
+Kategori Domain: ${domainMeta.domainLabel} (${domainMeta.domainKey})
+Primary Resource Noun: ${domainMeta.itemNoun}
 Port: process.env.PORT || ${port}
 
-Spesifikasi Teknis:
-1. Format CommonJS (require express, cors, path, dll).
-2. Sediakan mock in-memory database dengan struktur field data YANG 100% SESUAI DENGAN DOMAIN (${domainCategory}):
-   ${isHealth ? "- Struktur Pasien/Konsultasi: id, name, age, gender, symptoms, triage_level (EMERGENCY/URGENT/ROUTINE), recommended_poly (Umum/Gigi/KIA/Lansia), status (MENUNGGU/DIPERIKSA/RUJUK/SELESAI), created_at." : ""}
-   ${isPos ? "- Struktur POS Orders: id, item, category, price, customer, notes, payment_method, status (BREWING/READY/SERVED), created_at." : ""}
-   ${isLaundry ? "- Struktur Laundry Orders: id, customer, phone, service_type, weight_kg, total_price, status (MENUNGGU/DICUCI/DISETRIKA/SIAP_AMBIL), created_at." : ""}
-   ${isLogistics ? "- Struktur Shipments: id, tracking_number, sender, recipient, destination, courier, weight_kg, status (MANIFEST/TRANSIT/OUT_FOR_DELIVERY/DELIVERED), created_at." : ""}
-   ${isFinance ? "- Struktur Payroll/Transactions: id, employee_name, department, period, basic_salary, allowance, deduction, net_salary, status (DRAFT/APPROVED/PAID), created_at." : ""}
-3. Sediakan 3-5 baris dummy data awal yang realistis berbahasa Indonesia.
+Target Data Schema & Struktur Record:
+- Resource Endpoint Slug: /api/${domainMeta.endpointSlug} (dan juga alias /api/items)
+- Initial Mock Fields: ${JSON.stringify(domainMeta.fields.map(f => f.name))} + id, status, created_at
+- Referensi Dummy Data Contoh: ${JSON.stringify(domainMeta.initialRows[0] || {})}
+
+Spesifikasi Teknis Wajib:
+1. Format CommonJS (require('express'), require('cors'), require('path'), dll).
+2. Sediakan mock in-memory database dengan struktur field data YANG 100% SESUAI DENGAN DOMAIN DAN JUDUL PROYEK ("${project.title}").
+3. Sediakan 3-5 baris data awal yang realistis, relevan dengan ide/masalah proyek, dan berbahasa Indonesia / Inggris kontekstual.
 4. Buatkan REST API Endpoints lengkap:
-   - GET /health
-   - GET /api/items (dan alias domain misal /api/consultations, /api/orders, /api/patients, /api/shipments)
-   - POST /api/items (dan alias domain)
-   - PATCH /api/items/:id (dan alias domain)
-   - DELETE /api/items/:id (dan alias domain)
-5. Sajikan static files dari ../frontend dan fallback SPA routing (app.get('*', ...)).
+   - GET /health -> kembalikan status OK, nama project, domain, port
+   - GET /api/${domainMeta.endpointSlug} dan GET /api/items -> kembalikan list data { success: true, data: dataset }
+   - POST /api/${domainMeta.endpointSlug} dan POST /api/items -> simpan entri baru { success: true, data: newRecord }
+   - PATCH /api/${domainMeta.endpointSlug}/:id dan PATCH /api/items/:id -> update status / fields { success: true, data: updatedRecord }
+   - DELETE /api/${domainMeta.endpointSlug}/:id dan DELETE /api/items/:id -> hapus record { success: true, message: 'Deleted' }
+5. Sajikan static files dari folder '../frontend' dan fallback SPA routing (app.get('*', ...)).
 6. app.listen(PORT, '0.0.0.0', ...).
+7. HINDARI generic todo list. Buat field data yang kaya sesuai konteks ${project.title}.
 
 KEMBALIKAN HANYA KODE JAVASCRIPT DALAM CODE BLOCK:
 \`\`\`javascript
@@ -274,26 +775,41 @@ KEMBALIKAN HANYA KODE JAVASCRIPT DALAM CODE BLOCK:
       // =========================================================================
       // SUB-TASK B: ANYA (Frontend UI/UX) - Modern Responsive Dashboard UI
       // =========================================================================
-      const anyaFrontendPrompt = `Kamu adalah Anya, Lead Frontend Engineer & UI/UX Specialist.
-Tugasmu: Tuliskan file HTML5 ("index.html") LENGKAP berestetika modern kelas dunia (Linear/Vercel/Stripe aesthetic) untuk proyek ini:
+      const anyaFrontendPrompt = `Kamu adalah Anya, Lead Frontend Engineer & Elite UI/UX Specialist (Linear/Vercel/Stripe aesthetic).
+Tugasmu: Tuliskan file HTML5 ("index.html") LENGKAP, CANTIK, BERSIH, dan INTERAKTIF untuk proyek ini:
 
 Judul Proyek: "${project.title}"
-Deskripsi: "${project.description || project.goal}"
-Kategori Domain: ${domainCategory}
+Deskripsi / Problem & Solution: "${project.description || project.goal}"
+Kategori Domain: ${domainMeta.domainLabel} (${domainMeta.domainKey})
+Primary Resource Noun: ${domainMeta.itemNoun}
 Port: ${port}
 
-Spesifikasi Visual & Fungsional:
+Target Visual & Layout:
+- Icon Tema: Lucide icon "${domainMeta.icon}"
+- 4 KPI Metric Cards: ${domainMeta.kpiLabels.join(' | ')}
+- Form Title: "${domainMeta.formTitle}"
+- Form Subtitle: "${domainMeta.formSubtitle}"
+- Form Fields yang perlu disediakan:
+${domainMeta.fields.map(f => `  * ${f.label} (${f.name}) - Type: ${f.type}${f.options ? ' - Options: ' + f.options.join(', ') : ''}`).join('\n')}
+- API Endpoint Target: /api/${domainMeta.endpointSlug} (atau /api/items)
+
+Spesifikasi Visual & Fungsional Wajib:
 1. HTML5 Lengkap (dari <!DOCTYPE html> sampai </html>).
-2. Tailwind CSS (via https://cdn.tailwindcss.com), Google Fonts Plus Jakarta Sans, dan Lucide Icons (https://unpkg.com/lucide@latest).
-3. Tema Dark Modern: Background slate-950, card glassmorphism (slate-900 border slate-800), rounded-xl/2xl, pulsing live green badge.
-4. Komponen Wajib Sesuai Domain (${domainCategory}):
-   - Top Header dengan Nama Proyek, Badge LIVE, Status Port ${port}, dan Tombol Refresh.
-   - 3-4 KPI Summary Metric Cards (Total Entri, Active/Pending, Selesai/Done, Metrik Spesifik Domain).
-   - Form Entri / Input Data Spesifik Domain (${isHealth ? "Form Triase Pasien & Keluhan Gejala Puskesmas" : isPos ? "Form Order Menu Kasir / Barista" : isLaundry ? "Form Penerimaan Cucian Baru" : "Form Entri Data Operasional"}).
-   - Search & Real-time Filter Bar.
-   - List Cards / Data Table Interaktif yang menampilkan status badge berwarna (Emerald=Done, Amber=Pending, Rose=Emergency).
-   - Tombol Aksi per baris (Ubah Status, Selesai, Hapus).
-5. Script JavaScript Vanilla terintegrasi penuh yang memanggil REST API backend (/api/items atau alias domain) untuk Load Data, Tambah Data, Update Status, dan Hapus Data.
+2. Tailwind CSS via CDN (https://cdn.tailwindcss.com), Font 'Plus Jakarta Sans' via Google Fonts, dan Lucide Icons via unpkg (https://unpkg.com/lucide@latest).
+3. Tema Dark Modern: Background slate-950, card glassmorphism (slate-900 border slate-800), rounded-xl/2xl, pulsing live emerald badge.
+4. Komponen Dashboard Terstruktur Sesuai Domain:
+   - Header Glassmorphism: Icon tema, Judul Proyek "${project.title}", Badge LIVE hijau pulsing, Badge Domain "${domainMeta.domainLabel}", Port ${port}, dan Tombol Refresh.
+   - 4 KPI Metric Summary Cards di bagian atas dengan counter dinamis.
+   - Form Entri Spesifik: Form input responsif yang memuat seluruh field domain spesifik di atas (bukan generic todo).
+   - Search & Filter Bar real-time.
+   - Rich Data List / Table Card: Menampilkan entri data dengan title, subtitle badge informasi spesifik, status badge berwarna, dan tombol aksi (Update Status / Selesai / Hapus).
+   - Empty State yang elegan jika data kosong.
+5. JavaScript Vanilla Terintegrasi:
+   - Fetch GET /api/${domainMeta.endpointSlug} atau /api/items saat loadData()
+   - POST data baru saat form submit
+   - PATCH / DELETE saat tombol aksi ditekan
+   - Update realtime KPI counter dan rendering list
+   - lucide.createIcons() dipanggil setiap setelah re-render UI.
 
 KEMBALIKAN HANYA KODE HTML DALAM CODE BLOCK:
 \`\`\`html
@@ -320,40 +836,8 @@ KEMBALIKAN HANYA KODE HTML DALAM CODE BLOCK:
       // Robust Domain Fallback if Extraction is Too Short or Failed
       if (!generatedServerJs || generatedServerJs.length < 150) {
         console.log(`[Dynamic CodeGen] Generating domain fallback server.js for ${domainCategory}`);
-        let endpointSlug = "items";
-        let initialRows: any[] = [];
-
-        if (isHealth) {
-          endpointSlug = "consultations";
-          initialRows = [
-            { id: 1, name: "Budi Santoso", age: 42, gender: "Laki-laki", symptoms: "Demam tinggi 3 hari, batuk kering, sesak ringan", triage_level: "URGENT", recommended_poly: "Poli Umum", status: "SEDANG_DIPERIKSA", created_at: new Date().toISOString() },
-            { id: 2, name: "Siti Rahma", age: 29, gender: "Perempuan", symptoms: "Pemeriksaan kehamilan rutin trimester 2", triage_level: "ROUTINE", recommended_poly: "Poli KIA", status: "MENUNGGU", created_at: new Date().toISOString() },
-            { id: 3, name: "H. Supardi", age: 67, gender: "Laki-laki", symptoms: "Nyeri dada menjalar ke punggung kiri", triage_level: "EMERGENCY", recommended_poly: "IGD / Tindakan", status: "RUJUK_RSUD", created_at: new Date().toISOString() }
-          ];
-        } else if (isPos) {
-          endpointSlug = "orders";
-          initialRows = [
-            { id: 1, item: "Kopi Susu Aren Signature", category: "Coffee", price: 22000, customer: "Dimas", notes: "Less ice, normal sweet", payment_method: "QRIS", status: "BREWING", created_at: new Date().toISOString() },
-            { id: 2, item: "Matcha Latte Oatmilk", category: "Non-Coffee", price: 28000, customer: "Amanda", notes: "Hot", payment_method: "CASH", status: "READY", created_at: new Date().toISOString() }
-          ];
-        } else if (isLaundry) {
-          endpointSlug = "orders";
-          initialRows = [
-            { id: 1, customer: "Budi Santoso", phone: "08123456789", service_type: "Cuci Komplit Kilat 1 Hari", weight_kg: 4.5, total_price: 36000, status: "DICUCI", created_at: new Date().toISOString() },
-            { id: 2, customer: "Ibu Ratna", phone: "08198765432", service_type: "Bedcover King & Selimut", weight_kg: 6.0, total_price: 60000, status: "SIAP_AMBIL", created_at: new Date().toISOString() }
-          ];
-        } else if (isLogistics) {
-          endpointSlug = "shipments";
-          initialRows = [
-            { id: 1, tracking_number: "EXP-9821-JKT", sender: "Toko Elektronik Maju", recipient: "Budi Santoso (Surabaya)", courier: "JNE Regular", weight_kg: 2.1, status: "OUT_FOR_DELIVERY", created_at: new Date().toISOString() },
-            { id: 2, tracking_number: "EXP-5542-BDG", sender: "Fashion Distro Bandung", recipient: "Siti Rahma (Medan)", courier: "SiCepat Express", weight_kg: 1.0, status: "TRANSIT", created_at: new Date().toISOString() }
-          ];
-        } else {
-          initialRows = [
-            { id: 1, title: "Master Record 001", category: "Operational", value: 150000, status: "ACTIVE", created_at: new Date().toISOString() },
-            { id: 2, title: "Master Record 002", category: "Analytics", value: 320000, status: "ACTIVE", created_at: new Date().toISOString() }
-          ];
-        }
+        const endpointSlug = domainMeta.endpointSlug;
+        const initialRows = domainMeta.initialRows;
 
         generatedServerJs = `const express = require('express');
 const cors = require('cors');
@@ -368,17 +852,23 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 
 let dataset = ${JSON.stringify(initialRows, null, 2)};
 
-app.get('/health', (req, res) => res.json({ status: 'OK', project: '${project.title}', domain: '${domainCategory}', port: PORT }));
+app.get('/health', (req, res) => res.json({ 
+  status: 'OK', 
+  project: ${JSON.stringify(project.title)}, 
+  domain: ${JSON.stringify(domainMeta.domainLabel)}, 
+  port: PORT 
+}));
+
 app.get('/api/${endpointSlug}', (req, res) => res.json({ success: true, data: dataset }));
 app.get('/api/items', (req, res) => res.json({ success: true, data: dataset }));
 
 app.post('/api/${endpointSlug}', (req, res) => {
-  const newRow = { id: dataset.length + 1, ...req.body, created_at: new Date().toISOString() };
+  const newRow = { id: dataset.length > 0 ? Math.max(...dataset.map(d => d.id || 0)) + 1 : 1, ...req.body, created_at: new Date().toISOString() };
   dataset.unshift(newRow);
   res.status(201).json({ success: true, data: newRow });
 });
 app.post('/api/items', (req, res) => {
-  const newRow = { id: dataset.length + 1, ...req.body, created_at: new Date().toISOString() };
+  const newRow = { id: dataset.length > 0 ? Math.max(...dataset.map(d => d.id || 0)) + 1 : 1, ...req.body, created_at: new Date().toISOString() };
   dataset.unshift(newRow);
   res.status(201).json({ success: true, data: newRow });
 });
@@ -414,13 +904,48 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log('[Live Micro-App] ${project.title} running on port ' + PORT);
+  console.log('[Live Micro-App] ' + ${JSON.stringify(project.title)} + ' running on port ' + PORT);
 });
 `;
       }
 
       if (!generatedIndexHtml || generatedIndexHtml.length < 200) {
         console.log(`[Dynamic CodeGen] Generating domain fallback index.html for ${domainCategory}`);
+        
+        // Generate Form Inputs HTML dynamically from domainMeta.fields
+        const formFieldsHtml = domainMeta.fields.map(f => {
+          const colSpanClass = f.colSpan === 2 ? 'sm:col-span-2' : 'sm:col-span-1';
+          if (f.type === 'select') {
+            const optionsHtml = (f.options || []).map(opt => `<option value="${opt}">${opt}</option>`).join('\n                ');
+            return `<div class="${colSpanClass}">
+              <label class="block text-xs font-semibold text-slate-400 mb-1">${f.label}</label>
+              <select id="field_${f.name}" ${f.required ? 'required' : ''} class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
+                ${optionsHtml}
+              </select>
+            </div>`;
+          } else if (f.type === 'textarea') {
+            return `<div class="${colSpanClass}">
+              <label class="block text-xs font-semibold text-slate-400 mb-1">${f.label}</label>
+              <textarea id="field_${f.name}" rows="2" placeholder="${f.placeholder || ''}" ${f.required ? 'required' : ''} class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 resize-none"></textarea>
+            </div>`;
+          } else {
+            return `<div class="${colSpanClass}">
+              <label class="block text-xs font-semibold text-slate-400 mb-1">${f.label}</label>
+              <input type="${f.type}" id="field_${f.name}" placeholder="${f.placeholder || ''}" ${f.required ? 'required' : ''} class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
+            </div>`;
+          }
+        }).join('\n            ');
+
+        // Form JS payload collector
+        const formSubmitPayloadJs = domainMeta.fields.map(f => {
+          if (f.type === 'number') {
+            return `${f.name}: Number(document.getElementById('field_${f.name}').value) || 0`;
+          }
+          return `${f.name}: document.getElementById('field_${f.name}').value`;
+        }).join(',\n          ');
+
+        const formResetJs = domainMeta.fields.map(f => `if (document.getElementById('field_${f.name}')) document.getElementById('field_${f.name}').value = '';`).join('\n        ');
+
         generatedIndexHtml = `<!DOCTYPE html>
 <html lang="id" class="dark">
 <head>
@@ -441,7 +966,7 @@ app.listen(PORT, '0.0.0.0', () => {
   <header class="glassmorphism sticky top-0 z-40 px-6 py-4 border-b border-slate-800 flex justify-between items-center">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white font-black shadow-lg shadow-cyan-500/20">
-        <i data-lucide="${isHealth ? 'stethoscope' : isPos ? 'coffee' : isLaundry ? 'shirt' : isLogistics ? 'truck' : 'sparkles'}" class="w-5 h-5"></i>
+        <i data-lucide="${domainMeta.icon}" class="w-5 h-5"></i>
       </div>
       <div>
         <div class="flex items-center gap-2">
@@ -451,7 +976,7 @@ app.listen(PORT, '0.0.0.0', () => {
             LIVE
           </span>
           <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-800 text-cyan-400 border border-slate-700">
-            ${domainCategory}
+            ${domainMeta.domainLabel}
           </span>
         </div>
         <p class="text-xs text-slate-400">${project.description || 'Aplikasi otonom terintegrasi VirtuLabs Studio'}</p>
@@ -469,12 +994,12 @@ app.listen(PORT, '0.0.0.0', () => {
     </div>
   </header>
 
-  <main class="max-w-5xl w-full mx-auto p-4 sm:p-6 md:p-8 flex-1 flex flex-col gap-6">
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  <main class="max-w-6xl w-full mx-auto p-4 sm:p-6 md:p-8 flex-1 flex flex-col gap-6">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
       <div class="glassmorphism p-4 rounded-xl flex items-center justify-between">
         <div>
-          <span class="text-xs font-medium text-slate-400">${isHealth ? 'Total Pasien / Triase' : isPos ? 'Total Pesanan Menu' : isLaundry ? 'Total Order Laundry' : 'Total Rekaman'}</span>
-          <h3 id="statTotal" class="text-2xl font-extrabold text-white mt-0.5">0</h3>
+          <span class="text-xs font-medium text-slate-400">${domainMeta.kpiLabels[0]}</span>
+          <h3 id="statKpi1" class="text-2xl font-extrabold text-white mt-0.5">0</h3>
         </div>
         <div class="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
           <i data-lucide="layers" class="w-5 h-5"></i>
@@ -483,8 +1008,8 @@ app.listen(PORT, '0.0.0.0', () => {
 
       <div class="glassmorphism p-4 rounded-xl flex items-center justify-between">
         <div>
-          <span class="text-xs font-medium text-slate-400">${isHealth ? 'Antrean Menunggu' : 'Dalam Proses'}</span>
-          <h3 id="statActive" class="text-2xl font-extrabold text-amber-400 mt-0.5">0</h3>
+          <span class="text-xs font-medium text-slate-400">${domainMeta.kpiLabels[1]}</span>
+          <h3 id="statKpi2" class="text-2xl font-extrabold text-amber-400 mt-0.5">0</h3>
         </div>
         <div class="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
           <i data-lucide="clock" class="w-5 h-5"></i>
@@ -493,73 +1018,65 @@ app.listen(PORT, '0.0.0.0', () => {
 
       <div class="glassmorphism p-4 rounded-xl flex items-center justify-between">
         <div>
-          <span class="text-xs font-medium text-slate-400">${isHealth ? 'Selesai / Terlayani' : 'Selesai / Selesai'}</span>
-          <h3 id="statDone" class="text-2xl font-extrabold text-emerald-400 mt-0.5">0</h3>
+          <span class="text-xs font-medium text-slate-400">${domainMeta.kpiLabels[2]}</span>
+          <h3 id="statKpi3" class="text-2xl font-extrabold text-emerald-400 mt-0.5">0</h3>
         </div>
         <div class="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
           <i data-lucide="check-circle-2" class="w-5 h-5"></i>
         </div>
       </div>
+
+      <div class="glassmorphism p-4 rounded-xl flex items-center justify-between">
+        <div>
+          <span class="text-xs font-medium text-slate-400">${domainMeta.kpiLabels[3]}</span>
+          <h3 id="statKpi4" class="text-2xl font-extrabold text-cyan-400 mt-0.5">92%</h3>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+          <i data-lucide="sparkles" class="w-5 h-5"></i>
+        </div>
+      </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 items-start">
-      <div class="glassmorphism p-5 rounded-2xl md:col-span-1 shadow-xl">
-        <div class="flex items-center gap-2 mb-4 text-white font-bold text-sm">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 items-start">
+      <div class="glassmorphism p-5 rounded-2xl lg:col-span-5 shadow-xl">
+        <div class="flex items-center gap-2 mb-1 text-white font-bold text-sm">
           <i data-lucide="plus-circle" class="w-4 h-4 text-cyan-400"></i>
-          <span>${isHealth ? 'Pendaftaran & Triase AI Pasien' : 'Entri Data / Transaksi Baru'}</span>
+          <span>${domainMeta.formTitle}</span>
         </div>
+        <p class="text-xs text-slate-400 mb-4">${domainMeta.formSubtitle}</p>
+        
         <form id="recordForm" class="space-y-3.5">
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">${isHealth ? 'Nama Lengkap Pasien' : 'Nama Item / Customer'}</label>
-            <input type="text" id="inputTitle" required placeholder="${isHealth ? 'Contoh: Ibu Siti Rahma' : 'Masukkan data...'}" class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
-          </div>
-          ${isHealth ? `
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <label class="block text-xs font-semibold text-slate-400 mb-1">Usia (Tahun)</label>
-              <input type="number" id="inputAge" placeholder="35" class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-400 mb-1">Poli Tujuan</label>
-              <select id="inputPoly" class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-2.5 py-2 text-sm focus:outline-none focus:border-cyan-500">
-                <option value="Poli Umum">Poli Umum</option>
-                <option value="Poli Gigi">Poli Gigi</option>
-                <option value="Poli KIA">Poli KIA & Anak</option>
-                <option value="Poli Lansia">Poli Lansia</option>
-              </select>
-            </div>
-          </div>
-          ` : ''}
-          <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">${isHealth ? 'Keluhan Gejala Utama' : 'Catatan / Deskripsi'}</label>
-            <textarea id="inputDesc" rows="2" placeholder="${isHealth ? 'Deskripsikan gejala yang dirasakan...' : 'Keterangan tambahan...'}" class="w-full bg-slate-900 text-white border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 resize-none"></textarea>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            ${formFieldsHtml}
           </div>
           <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm transition hover:opacity-90 shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2">
             <i data-lucide="send" class="w-4 h-4"></i>
-            <span>${isHealth ? 'Proses Triase & Daftar' : 'Simpan Data'}</span>
+            <span>Simpan & Eksekusi Data</span>
           </button>
         </form>
       </div>
 
-      <div class="glassmorphism p-5 rounded-2xl md:col-span-2 shadow-xl flex flex-col gap-4">
+      <div class="glassmorphism p-5 rounded-2xl lg:col-span-7 shadow-xl flex flex-col gap-4">
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
           <div class="flex items-center gap-2">
             <i data-lucide="list" class="w-4 h-4 text-cyan-400"></i>
-            <span class="font-bold text-sm text-white">${isHealth ? 'Daftar Antrean & Triase Puskesmas' : 'Daftar Rekaman Live'}</span>
+            <span class="font-bold text-sm text-white">Daftar Rekaman Live: ${domainMeta.itemNoun}</span>
           </div>
-          <input type="text" id="searchInput" placeholder="Cari data..." oninput="renderTable()" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none">
+          <input type="text" id="searchInput" placeholder="Cari data..." oninput="renderTable()" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-cyan-500">
         </div>
 
-        <div id="dataList" class="space-y-2.5"></div>
+        <div id="dataList" class="space-y-2.5 max-h-[500px] overflow-y-auto pr-1"></div>
       </div>
     </div>
   </main>
 
   <script>
     let dataset = [];
+    const statusMap = ${JSON.stringify(domainMeta.statusColors)};
+
     async function loadData() {
       try {
-        const res = await fetch('/api/items');
+        const res = await fetch('/api/${domainMeta.endpointSlug}');
         const json = await res.json();
         dataset = json.data || [];
         updateStats();
@@ -570,9 +1087,9 @@ app.listen(PORT, '0.0.0.0', () => {
     }
 
     function updateStats() {
-      document.getElementById('statTotal').innerText = dataset.length;
-      document.getElementById('statActive').innerText = dataset.filter(x => x.status !== 'DONE' && x.status !== 'SELESAI' && x.status !== 'SERVED').length;
-      document.getElementById('statDone').innerText = dataset.filter(x => x.status === 'DONE' || x.status === 'SELESAI' || x.status === 'SERVED').length;
+      document.getElementById('statKpi1').innerText = dataset.length;
+      document.getElementById('statKpi2').innerText = dataset.filter(x => x.status === 'NEEDS_REVIEW' || x.status === 'MENUNGGU' || x.status === 'ROUTED' || x.status === 'BREWING' || x.status === 'IN_TRANSIT' || x.status === 'PENDING' || x.status === 'ACTIVE' || x.status === 'DRAFT').length;
+      document.getElementById('statKpi3').innerText = dataset.filter(x => x.status === 'OPTIMAL' || x.status === 'CACHED' || x.status === 'SELESAI' || x.status === 'SERVED' || x.status === 'DELIVERED' || x.status === 'PAID' || x.status === 'CLOSED_WON' || x.status === 'PUBLISHED' || x.status === 'SIAP_AMBIL' || x.status === 'DONE').length;
     }
 
     function renderTable() {
@@ -581,56 +1098,67 @@ app.listen(PORT, '0.0.0.0', () => {
       const filtered = dataset.filter(d => JSON.stringify(d).toLowerCase().includes(search));
 
       if (filtered.length === 0) {
-        list.innerHTML = '<div class="p-8 text-center text-slate-500 text-sm">Belum ada data rekaman.</div>';
+        list.innerHTML = '<div class="p-8 text-center text-slate-500 text-sm">Belum ada data rekaman. Masukkan data melalui form di sebelah kiri.</div>';
         return;
       }
 
       list.innerHTML = filtered.map(item => {
-        const title = item.name || item.item || item.title || item.customer || item.tracking_number || 'Record #' + item.id;
-        const sub = item.symptoms || item.recommended_poly || item.poly || item.service_type || item.category || item.complaint || item.description || '';
-        const triage = item.triage_level || '';
-        const statusColor = triage === 'EMERGENCY' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : triage === 'URGENT' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
+        const title = item.url || item.app_name || item.name || item.item || item.customer || item.lead_name || item.tracking_number || item.invoice_no || item.product_name || item.course_title || item.title || ('Rekaman #' + item.id);
+        const sub = item.focus_keyword || item.provider_model || item.symptoms || item.notes || item.requirements || item.sender || item.client_name || item.category || item.instructor || item.details || item.service_type || '';
+        const badge1 = item.audit_type || item.tokens_saved || item.triage_level || item.recommended_poly || item.payment_method || item.courier || item.due_date || item.sku || item.level || '';
+        const scoreOrVal = item.score !== undefined ? ('Score: ' + item.score) : (item.latency_ms || (item.price ? ('Rp ' + Number(item.price).toLocaleString()) : (item.deal_value ? ('Rp ' + Number(item.deal_value).toLocaleString()) : (item.amount ? ('Rp ' + Number(item.amount).toLocaleString()) : ''))));
+        
+        const status = item.status || 'ACTIVE';
+        const colorClass = statusMap[status] || 'bg-slate-800 text-slate-300 border-slate-700';
 
-        return '<div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-3">' +
-          '<div>' +
-            '<div class="flex items-center gap-2">' +
-              '<h4 class="font-bold text-sm text-white">' + title + '</h4>' +
-              (triage ? '<span class="px-1.5 py-0.5 text-[9px] font-bold rounded ' + statusColor + ' border">' + triage + '</span>' : '') +
+        return '<div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition flex items-center justify-between gap-3">' +
+          '<div class="flex-1 min-w-0">' +
+            '<div class="flex items-center gap-2 flex-wrap">' +
+              '<h4 class="font-bold text-sm text-white truncate">' + title + '</h4>' +
+              (badge1 ? '<span class="px-2 py-0.5 text-[10px] font-semibold rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">' + badge1 + '</span>' : '') +
+              (scoreOrVal ? '<span class="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">' + scoreOrVal + '</span>' : '') +
             '</div>' +
-            (sub ? '<p class="text-xs text-slate-400 mt-0.5">' + sub + '</p>' : '') +
+            (sub ? '<p class="text-xs text-slate-400 mt-1 line-clamp-1">' + sub + '</p>' : '') +
           '</div>' +
-          '<div class="flex items-center gap-2">' +
-            '<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-slate-300 border border-slate-700">' + (item.status || 'ACTIVE') + '</span>' +
+          '<div class="flex items-center gap-2 shrink-0">' +
+            '<span class="px-2.5 py-1 text-[11px] font-bold rounded-lg border ' + colorClass + '">' + status + '</span>' +
+            '<button onclick="deleteItem(' + item.id + ')" class="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition" title="Hapus">' +
+              '<i data-lucide="trash-2" class="w-4 h-4"></i>' +
+            '</button>' +
           '</div>' +
         '</div>';
       }).join('');
       if (window.lucide) lucide.createIcons();
     }
 
+    async function deleteItem(id) {
+      if (!confirm('Hapus rekaman data ini?')) return;
+      try {
+        await fetch('/api/${domainMeta.endpointSlug}/' + id, { method: 'DELETE' });
+        loadData();
+      } catch (e) {
+        console.error('Delete error:', e);
+      }
+    }
+
     document.getElementById('recordForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const title = document.getElementById('inputTitle').value;
-      const desc = document.getElementById('inputDesc').value;
-      const age = document.getElementById('inputAge') ? document.getElementById('inputAge').value : undefined;
-      const poly = document.getElementById('inputPoly') ? document.getElementById('inputPoly').value : undefined;
+      const payload = {
+        ${formSubmitPayloadJs},
+        status: '${domainMeta.initialRows[0]?.status || 'ACTIVE'}'
+      };
 
-      await fetch('/api/items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          name: title, 
-          title, 
-          description: desc, 
-          symptoms: desc, 
-          age: age ? parseInt(age, 10) : undefined, 
-          recommended_poly: poly, 
-          triage_level: 'ROUTINE',
-          status: 'MENUNGGU' 
-        })
-      });
-      document.getElementById('inputTitle').value = '';
-      document.getElementById('inputDesc').value = '';
-      loadData();
+      try {
+        await fetch('/api/${domainMeta.endpointSlug}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        ${formResetJs}
+        loadData();
+      } catch (err) {
+        console.error('Submit error:', err);
+      }
     });
 
     loadData();

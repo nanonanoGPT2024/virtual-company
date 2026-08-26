@@ -187,21 +187,7 @@ export default function App() {
   };
 
   const getApiBase = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const paramApi = urlParams.get('api');
-    if (paramApi) {
-      const clean = paramApi.replace(/\/$/, '');
-      const full = clean.endsWith('/api') ? clean : `${clean}/api`;
-      localStorage.setItem('API_URL', full);
-      return full;
-    }
-    const storedApi = localStorage.getItem('API_URL');
-    if (storedApi) {
-      const clean = storedApi.replace(/\/$/, '');
-      return clean.endsWith('/api') ? clean : `${clean}/api`;
-    }
-    const host = window.location.hostname || 'localhost';
-    return `http://${host}:4000/api`;
+    return '/api';
   };
   const API_BASE = getApiBase();
 

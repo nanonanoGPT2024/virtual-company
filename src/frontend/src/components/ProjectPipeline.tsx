@@ -125,7 +125,7 @@ const PIPELINE_DIVISIONS: DivisionStage[] = [
 export default function ProjectPipeline({ 
   projects, 
   onProjectCreated, 
-  apiBase = 'http://localhost:4000/api',
+  apiBase = '/api',
   authToken,
   currentUser,
   inspectUser,
@@ -785,8 +785,9 @@ export default function ProjectPipeline({
                             title="Download Bundle (.ZIP)"
                             onClick={(e) => {
                               e.stopPropagation();
+                              const activeToken = authToken || localStorage.getItem('company_os_token') || '';
                               const apiTarget = apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api");
-                              window.open(`${apiTarget}/projects/${project.id}/download-zip`, '_blank');
+                              window.open(`${apiTarget}/projects/${project.id}/download-zip?token=${encodeURIComponent(activeToken)}`, '_blank');
                             }}
                             style={{
                               background: 'rgba(2, 132, 199, 0.15)',
@@ -1268,8 +1269,9 @@ export default function ProjectPipeline({
                 <button
                   title="Download Seluruh Project (.ZIP)"
                   onClick={() => {
+                    const activeToken = authToken || localStorage.getItem('company_os_token') || '';
                     const apiTarget = apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api");
-                    window.open(`${apiTarget}/projects/${selectedProject.id}/download-zip`, '_blank');
+                    window.open(`${apiTarget}/projects/${selectedProject.id}/download-zip?token=${encodeURIComponent(activeToken)}`, '_blank');
                   }}
                   style={{
                     backgroundColor: '#0284c7',
@@ -1538,7 +1540,7 @@ export default function ProjectPipeline({
                       <div><strong>Host Target:</strong> WSL2 (Linux 6.6)</div>
                       <div><strong>Allocated Port:</strong> <code>{selectedProject.port || 5001}</code></div>
                       <div><strong>Process Manager:</strong> PM2 ({selectedProject.pm2_name || `proj-${selectedProject.slug}`})</div>
-                      <div><strong>Live Application URL:</strong> <a href={selectedProject.live_url || `http://localhost:${selectedProject.port || 5001}`} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', fontWeight: 600 }}>{selectedProject.live_url || `http://localhost:${selectedProject.port || 5001}`}</a></div>
+                      <div><strong>Live Application URL:</strong> <a href={typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? `${window.location.origin}/api/projects/${selectedProject.id}/preview/` : (selectedProject.live_url || `http://localhost:${selectedProject.port || 5001}`)} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', fontWeight: 600 }}>{selectedProject.live_url || `http://localhost:${selectedProject.port || 5001}`}</a></div>
                     </div>
                   </div>
                 )}
@@ -1609,8 +1611,9 @@ export default function ProjectPipeline({
 
                               <button
                                 onClick={() => {
+                                  const activeToken = authToken || localStorage.getItem('company_os_token') || '';
                                   const docxName = ((doc as any).file_path || doc.title).replace(/\.md$/i, '.docx').replace(/^docs[\\/]/, '');
-                                  window.open(`${apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api")}/projects/${selectedProject.id}/download-file?filename=${encodeURIComponent(docxName)}`, '_blank');
+                                  window.open(`${apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api")}/projects/${selectedProject.id}/download-file?filename=${encodeURIComponent(docxName)}&token=${encodeURIComponent(activeToken)}`, '_blank');
                                 }}
                                 style={{
                                   backgroundColor: '#0284c7',
@@ -1634,7 +1637,8 @@ export default function ProjectPipeline({
                               {(doc.title.includes('QA') || doc.title.includes('Security')) && (
                                 <button
                                   onClick={() => {
-                                    window.open(`${apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api")}/projects/${selectedProject.id}/download-file?filename=SIT_UAT_Test_Matrix.xlsx`, '_blank');
+                                    const activeToken = authToken || localStorage.getItem('company_os_token') || '';
+                                    window.open(`${apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api")}/projects/${selectedProject.id}/download-file?filename=SIT_UAT_Test_Matrix.xlsx&token=${encodeURIComponent(activeToken)}`, '_blank');
                                   }}
                                   style={{
                                     backgroundColor: '#059669',
@@ -1658,7 +1662,8 @@ export default function ProjectPipeline({
                               {(doc.title.includes('Sales') || doc.title.includes('Privacy') || doc.title.includes('PRD')) && (
                                 <button
                                   onClick={() => {
-                                    window.open(`${apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api")}/projects/${selectedProject.id}/download-file?filename=Financial_Model_Budget.xlsx`, '_blank');
+                                    const activeToken = authToken || localStorage.getItem('company_os_token') || '';
+                                    window.open(`${apiBase || (localStorage.getItem("API_URL") ? localStorage.getItem("API_URL") : "http://" + window.location.hostname + ":4000/api")}/projects/${selectedProject.id}/download-file?filename=Financial_Model_Budget.xlsx&token=${encodeURIComponent(activeToken)}`, '_blank');
                                   }}
                                   style={{
                                     backgroundColor: '#0d9488',
@@ -1935,13 +1940,18 @@ export default function ProjectPipeline({
                       {isEnriching ? 'Menganalisis...' : '✨ Auto-Enrich AI Spec'}
                     </button>
 
-                    <a
-                      href={`${apiBase}/projects/template/project-spec.docx`}
-                      download="Template_Spesifikasi_Proyek.docx"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const activeToken = authToken || localStorage.getItem('company_os_token') || '';
+                        window.open(`${apiBase}/projects/template/project-spec.docx?token=${encodeURIComponent(activeToken)}`, '_blank');
+                      }}
                       style={{
                         fontSize: '0.75rem',
                         color: '#94a3b8',
-                        textDecoration: 'none',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.25rem',
@@ -1950,7 +1960,7 @@ export default function ProjectPipeline({
                     >
                       <Download size={12} />
                       Form (.docx)
-                    </a>
+                    </button>
                   </div>
                 </div>
                 <textarea

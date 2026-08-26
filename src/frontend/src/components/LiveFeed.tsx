@@ -45,13 +45,7 @@ export default function LiveFeed({ mode = 'widget', apiBase, authToken, inspectU
   const feedEndRef = useRef<HTMLDivElement | null>(null);
 
   const getApiUrl = () => {
-    if (apiBase) return apiBase;
-    let stored = localStorage.getItem('API_URL');
-    if (stored) return stored;
-    if (window.location.port === '5173' || window.location.port === '5174') {
-      return `http://${window.location.hostname}:4000/api`;
-    }
-    return `${window.location.origin}/api`;
+    return apiBase || '/api';
   };
 
   const fetchActivities = async () => {
